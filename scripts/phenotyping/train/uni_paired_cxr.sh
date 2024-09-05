@@ -1,0 +1,12 @@
+CUDA_VISIBLE_DEVICES=0 CUDA_LAUNCH_BLOCKING=1 python fusion_main.py \
+--dim 256 --dropout 0.3 --layers 2 \
+--vision-backbone resnet34 \
+--mode train \
+--epochs 50 --batch_size 16 --lr 0.0001 \
+--vision_num_classes 25 --num_classes 25 \
+--task phenotyping \
+--labels_set pheno \
+--normalizer_state pheno_ts:2.00.normalizer \
+--data_pairs paired_ehr_cxr \
+--save_dir checkpoints/pheno/uni_cxr_paired \
+--fusion_type uni_cxr 
