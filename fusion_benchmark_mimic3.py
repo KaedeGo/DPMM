@@ -84,98 +84,98 @@ if __name__ == "__main__":
 
     train_dl, val_dl, test_dl = load_note_ehr(args, ehr_train_ds, ehr_val_ds, note_train_ds, note_val_ds, ehr_test_ds, note_test_ds)
 
-    # for lr in [0.00005, 0.0001, 0.0005, 0.001, 0.005]:
+    for lr in [0.0001, 0.0005, 0.001]:
     # for dr in [0, 0.05, 0.1, 0.2, 0.3, 0.4]:
-    for temperature in [0.001, 0.005, 0.01, 0.05]:
-        for rho_scale in [-2.5, -3, -3.5, -4]:
-            for K in [2, 3]:
-                if "partial" in args.data_pairs:
-                    pair_type = "partial"
-                else:
-                    pair_type = "paired"
+        for temperature in [0.001, 0.005, 0.01]:
+            for rho_scale in [-2.5, -3, -3.5, -4]:
+                for K in [2, 3]:
+                    if "partial" in args.data_pairs:
+                        pair_type = "partial"
+                    else:
+                        pair_type = "paired"
 
-                if "mimic3" in args.ehr_data_dir:
-                    dataset_name = "mimic3"
-                else:
-                    dataset_name = "mimic4"
+                    if "mimic3" in args.ehr_data_dir:
+                        dataset_name = "mimic3"
+                    else:
+                        dataset_name = "mimic4"
 
-                # args.lr = lr
-                # args.dropout = dr
-                args.K = K
-                args.rho_scale = rho_scale
-                args.temperature = temperature
+                    # args.lr = lr
+                    # args.dropout = dr
+                    args.K = K
+                    args.rho_scale = rho_scale
+                    args.temperature = temperature
 
-                name = f"{dataset_name}_{args.fusion_type}_{pair_type}_{args.labels_set}_{args.copula_family}_rho{rho_scale}_K{K}_temp{args.temperature}"
-                # name = f"{args.fusion_type}_{pair_type}_{args.labels_set}_dr{dr}"
-                # name = f"{args.fusion_type}_{pair_type}_{args.labels_set}_lr{lr}"
-                # name = f"{args.fusion_type}_{pair_type}_{args.labels_set}_{args.copula_family}_temp{args.temperature}"
+                    name = f"{dataset_name}_{args.fusion_type}_{pair_type}_{args.labels_set}_{args.copula_family}_rho{rho_scale}_K{K}_temp{args.temperature}"
+                    # name = f"{args.fusion_type}_{pair_type}_{args.labels_set}_dr{dr}"
+                    # name = f"{args.fusion_type}_{pair_type}_{args.labels_set}_lr{lr}"
+                    # name = f"{args.fusion_type}_{pair_type}_{args.labels_set}_{args.copula_family}_temp{args.temperature}"
 
-                args.save_dir = f"checkpoints/phenotyping/paired/copula/{name}"
-                path = Path(args.save_dir)
-                path.mkdir(parents=True, exist_ok=True)
+                    args.save_dir = f"checkpoints/phenotyping/paired/copula/{name}"
+                    path = Path(args.save_dir)
+                    path.mkdir(parents=True, exist_ok=True)
 
-                config = vars(args)
-                mode = "online"
+                    config = vars(args)
+                    mode = "online"
 
-                wandb.init(name=name,
-                           project='MedFuse',
-                           notes="",
-                           mode=mode,
-                           config=config,
-                           tags=["copula", args.copula_family, pair_type]
-                           )
+                    wandb.init(name=name,
+                               project='MedFuse',
+                               notes="",
+                               mode=mode,
+                               config=config,
+                               tags=["copula", args.copula_family, pair_type]
+                               )
 
-                with open(f"{args.save_dir}/args.txt", 'w') as results_file:
-                    for arg in vars(args):
-                        print(f"  {arg:<40}: {getattr(args, arg)}")
-                        results_file.write(f"  {arg:<40}: {getattr(args, arg)}\n")
+                    with open(f"{args.save_dir}/args.txt", 'w') as results_file:
+                        for arg in vars(args):
+                            print(f"  {arg:<40}: {getattr(args, arg)}")
+                            results_file.write(f"  {arg:<40}: {getattr(args, arg)}\n")
 
-                if args.fusion_type == 'mmtm':
-                    trainer = MMTMTrainer(
-                        train_dl,
-                        val_dl,
-                        args,
-                        test_dl=test_dl
-                    )
-                elif args.fusion_type == 'daft':
-                    trainer = DAFTTrainer(train_dl,
-                                          val_dl,
-                                          args,
-                                          test_dl=test_dl)
-                elif args.fusion_type == 'drfuse':
-                    trainer = DrFuseTrainer(
-                        train_dl,
-                        val_dl,
-                        args,
-                        test_dl=test_dl
-                    )
-                elif args.fusion_type == 'copula':
-                    trainer = CopulaTrainer(
-                        train_dl,
-                        val_dl,
-                        args,
-                        test_dl=test_dl
-                    )
-                else:
-                    trainer = FusionTrainer(
-                        train_dl,
-                        val_dl,
-                        args,
-                        test_dl=test_dl
-                    )
+                    if args.fusion_type == 'mmtm':
+                        trainer = MMTMTrainer(
+                            train_dl,
+                            val_dl,
+                            args,
+                            test_dl=test_dl
+                        )
+                    elif args.fusion_type == 'daft':
+                        trainer = DAFTTrainer(train_dl,
+                                              val_dl,
+                                              args,
+                                              test_dl=test_dl)
+                    elif args.fusion_type == 'drfuse':
+                        trainer = DrFuseTrainer(
+                            train_dl,
+                            val_dl,
+                            args,
+                            test_dl=test_dl
+                        )
+                    elif args.fusion_type == 'copula':
+                        trainer = CopulaTrainer(
+                            train_dl,
+                            val_dl,
+                            args,
+                            test_dl=test_dl
+                        )
+                    else:
+                        trainer = FusionTrainer(
+                            train_dl,
+                            val_dl,
+                            args,
+                            test_dl=test_dl
+                        )
 
-                if args.mode == 'train':
-                    print("==> training")
+                    if args.mode == 'train':
+                        print("==> training")
 
-                    trainer.train()
-                    trainer.args.load_state = args.save_dir + '/best_checkpoint.pth.tar'
-                    trainer.load_state()
-                    trainer.eval()
+                        trainer.train()
+                        trainer.args.load_state = args.save_dir + '/best_checkpoint.pth.tar'
+                        trainer.load_state()
+                        trainer.eval()
 
-                    wandb.finish()
-                    args.load_state = None
+                        wandb.finish()
+                        args.load_state = None
 
-                elif args.mode == 'eval':
-                    trainer.eval()
-                else:
-                    raise ValueError("not Implementation for args.mode")
+                    elif args.mode == 'eval':
+                        trainer.eval()
+                    else:
+                        raise ValueError("not Implementation for args.mode")

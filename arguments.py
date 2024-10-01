@@ -46,7 +46,7 @@ def args_parser():
     parser.add_argument('--rec_dropout', type=float, default=0.0, help="dropout rate for recurrent connections")
 
     # model setting
-    parser.add_argument('--fusion_type', type=str, default='drfuse', help='train or eval for [fused_ehr, fused_cxr, uni_cxr, uni_ehr, lstm, unified, mmtm, daft, copula, drfuse]')
+    parser.add_argument('--fusion_type', type=str, default='copula', help='train or eval for [fused_ehr, fused_cxr, uni_cxr, uni_ehr, lstm, unified, mmtm, daft, copula, drfuse]')
         # backbone setting
         # vision backbone setting
     parser.add_argument('--layers', default=2, type=int, help='number of lstm stacked modules')
@@ -71,7 +71,7 @@ def args_parser():
     parser.add_argument('--copula_fuse_type', type=str, default=None, help='copula_fuse_type: lstm, mha')
     parser.add_argument('--copula_normalize_feats', action="store_true")
     parser.add_argument('--copula_resample', type=bool, default=True)
-    parser.add_argument('--replace_w_align', type=bool, default=False)
+    parser.add_argument('--replace_w_align', type=str, default=None, help='replace_w_align: kl, cos')
         # drfuse setting   
     parser.add_argument('--lambda_disentangle_shared', type=float, default=1)
     parser.add_argument('--lambda_disentangle_ehr', type=float, default=1)
@@ -103,7 +103,7 @@ def args_parser():
     # Copula parameters
     parser.add_argument('--K', type=int, default=3)
     parser.add_argument('--rho_scale', type=float, default=-3)
-    parser.add_argument('--copula_family', type=str, default="Gumbel")
+    parser.add_argument('--copula_family', type=str, default="Gumbel", choices=["Gumbel", "Clayton", "Frank", "Gaussian"])
 
     # Temperature annealing
     parser.add_argument('--temperature', type=float, default=0.0001)

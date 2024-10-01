@@ -1,18 +1,28 @@
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
+
 
 class LSTM(nn.Module):
 
-    def __init__(self, input_dim=76, num_classes=1, hidden_dim=128, batch_first=True, dropout=0.0, layers=1):
+    def __init__(
+        self,
+        input_dim=76,
+        num_classes=1,
+        hidden_dim=128,
+        batch_first=True,
+        dropout=0.0,
+        layers=1,
+    ):
         super(LSTM, self).__init__()
         self.hidden_dim = hidden_dim
         self.layers = layers
         for layer in range(layers):
-            setattr(self, f'layer{layer}', nn.LSTM(
-                input_dim, hidden_dim,
-                batch_first=batch_first,
-                dropout = dropout)
+            setattr(
+                self,
+                f"layer{layer}",
+                nn.LSTM(
+                    input_dim, hidden_dim, batch_first=batch_first, dropout=dropout
+                ),
             )
             input_dim = hidden_dim
         self.do = None
@@ -21,7 +31,7 @@ class LSTM(nn.Module):
         self.feats_dim = hidden_dim
         self.dense_layer = nn.Linear(hidden_dim, num_classes)
         self.initialize_weights()
-        # self.activation = torch.sigmoid
+
     def initialize_weights(self):
         for model in self.modules():
 
@@ -35,9 +45,11 @@ class LSTM(nn.Module):
                 nn.init.zeros_(model.bias_ih_l0)
 
     def forward(self, x, seq_lengths):
-        x = torch.nn.utils.rnn.pack_padded_sequence(x, seq_lengths, batch_first=True, enforce_sorted=False)
+        x = torch.nn.utils.rnn.pack_padded_sequence(
+            x, seq_lengths, batch_first=True, enforce_sorted=False
+        )
         for layer in range(self.layers):
-            x, (ht, _) = getattr(self, f'layer{layer}')(x)
+            x, (ht, _) = getattr(self, f"layer{layer}")(x)
         feats = ht.squeeze(0)
         if self.do is not None:
             feats = self.do(feats)

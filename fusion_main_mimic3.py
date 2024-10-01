@@ -1,10 +1,8 @@
 from __future__ import absolute_import
 from __future__ import print_function
-
 import numpy as np
 import os
 import random
-
 from trainers.mimic3.fusion_trainer import FusionTrainer
 from trainers.mimic3.mmtm_trainer import MMTMTrainer
 from trainers.mimic3.daft_trainer import DAFTTrainer
@@ -19,115 +17,147 @@ from paths import *
 import torch
 from arguments import args_parser
 
+
 def seed_torch(seed=0):
     random.seed(seed)
     np.random.seed(seed)
-    os.environ['PYTHONHASHSEED'] = str(seed)
+    os.environ["PYTHONHASHSEED"] = str(seed)
     torch.manual_seed(seed)
     torch.cuda.manual_seed(seed)
     torch.backends.cudnn.deterministic = True
     torch.backends.cudnn.benchmark = False
     print(f"set seed {seed}")
 
+
 def read_timeseries(args):
-    path = f'{args.ehr_data_dir}/{args.task}/train/3_episode1_timeseries.csv'
+    path = f"{args.ehr_data_dir}/{args.task}/train/3_episode1_timeseries.csv"
     ret = []
     with open(path, "r") as tsfile:
-        header = tsfile.readline().strip().split(',')
+        header = tsfile.readline().strip().split(",")
         assert header[0] == "Hours"
         for line in tsfile:
-            mas = line.strip().split(',')
+            mas = line.strip().split(",")
             ret.append(np.array(mas))
     return np.stack(ret)
 
+
 def get_ehr_dataset_info(args):
-    discretizer = Discretizer(timestep=float(args.timestep),
-                            store_masks=True,
-                            impute_strategy='previous',
-                            start_time='zero')
+    discretizer = Discretizer(
+        timestep=float(args.timestep),
+        store_masks=True,
+        impute_strategy="previous",
+        start_time="zero",
+    )
 
-    discretizer_header = discretizer.transform(read_timeseries(args))[1].split(',')
-    cont_channels = [i for (i, x) in enumerate(discretizer_header) if x.find("->") == -1]
+    discretizer_header = discretizer.transform(read_timeseries(args))[1].split(",")
+    cont_channels = [
+        i for (i, x) in enumerate(discretizer_header) if x.find("->") == -1
+    ]
 
-    normalizer = Normalizer(fields=cont_channels)  # choose here which columns to standardize
+    normalizer = Normalizer(
+        fields=cont_channels
+    )  # choose here which columns to standardize
     normalizer_state = args.normalizer_state
     if normalizer_state is None:
-        normalizer_state = 'normalizers/ph_ts{}.input_str:previous.start_time:zero.normalizer'.format(args.timestep)
+        normalizer_state = (
+            "normalizers/ph_ts{}.input_str:previous.start_time:zero.normalizer".format(
+                args.timestep
+            )
+        )
         normalizer_state = os.path.join(os.path.dirname(__file__), normalizer_state)
     normalizer.load_params(normalizer_state)
-    return discretizer,normalizer
+    return discretizer, normalizer
+
 
 if __name__ == "__main__":
     parser = args_parser()
     # add more arguments here ...
     args = parser.parse_args()
-    # args.batch_size = 8
-    # args.ehr_data_dir = '/disk1/fwu/myProjects/MedFuse/data_mimic3/'
-    # args.data_pairs = "paired_ehr_note"
-
+    # args.ehr_data_dir = MIMIC3_DATA_DIR
+    # args.normalizer_state = MIMIC3_READM_NORMALIZER_PATH if args.task == "readmission" else MIMIC3_IHM_NORMALIZER_PATH
     print(args)
-    
     # create a directory to save the results
     path = Path(args.save_dir)
     path.mkdir(parents=True, exist_ok=True)
 
-    # set seed
-    seed_torch(1002)
-
     discretizer, normalizer = get_ehr_dataset_info(args)
 
-    ehr_train_ds, ehr_val_ds, ehr_test_ds = get_datasets(discretizer, normalizer, args)
+    # aurocs = []
+    # auprcs = []
+    # f1s = []
 
-    note_train_ds, note_val_ds, note_test_ds = get_note_datasets(args)
+    for seed in [1002]:
+        args.load_state = None
+        print(args)
 
-    train_dl, val_dl, test_dl = load_note_ehr(args, ehr_train_ds, ehr_val_ds, note_train_ds, note_val_ds, ehr_test_ds, note_test_ds)
+        # set seed
+        seed_torch(seed)
 
-    with open(f"{args.save_dir}/args.txt", 'w') as results_file:
-        for arg in vars(args): 
-            print(f"  {arg:<40}: {getattr(args, arg)}")
-            results_file.write(f"  {arg:<40}: {getattr(args, arg)}\n")
+        ehr_train_ds, ehr_val_ds, ehr_test_ds = get_datasets(
+            discretizer, normalizer, args
+        )
 
-    if args.fusion_type == 'mmtm':
-        trainer = MMTMTrainer(
-            train_dl, 
-            val_dl, 
-            args,
-            test_dl=test_dl
-            )
-    elif args.fusion_type == 'daft':
-            trainer = DAFTTrainer(train_dl, 
-            val_dl, 
-            args,
-            test_dl=test_dl)
-    elif args.fusion_type == 'drfuse':
-        trainer = DrFuseTrainer(
-            train_dl, 
-            val_dl, 
-            args,
-            test_dl=test_dl
-            )
-    elif args.fusion_type == 'copula':
-        trainer = CopulaTrainer(
-            train_dl, 
-            val_dl, 
-            args,
-            test_dl=test_dl
-            )
-    else:
-        trainer = FusionTrainer(
-            train_dl, 
-            val_dl, 
-            args,
-            test_dl=test_dl
-            )
+        note_train_ds, note_val_ds, note_test_ds = get_note_datasets(args)
 
-    if args.mode == 'train':
-        print("==> training")
-        trainer.train()
-        trainer.args.load_state = args.save_dir + '/best_checkpoint.pth.tar'
-        trainer.load_state()
-        trainer.eval()
-    elif args.mode == 'eval':
-        trainer.eval()
-    else:
-        raise ValueError("not Implementation for args.mode")
+        train_dl, val_dl, test_dl = load_note_ehr(
+            args,
+            ehr_train_ds,
+            ehr_val_ds,
+            note_train_ds,
+            note_val_ds,
+            ehr_test_ds,
+            note_test_ds,
+        )
+
+        with open(f"{args.save_dir}/args.txt", "w") as results_file:
+            for arg in vars(args):
+                print(f"  {arg:<40}: {getattr(args, arg)}")
+                results_file.write(f"  {arg:<40}: {getattr(args, arg)}\n")
+
+        if args.fusion_type == "mmtm":
+            trainer = MMTMTrainer(train_dl, val_dl, args, test_dl=test_dl)
+        elif args.fusion_type == "daft":
+            trainer = DAFTTrainer(train_dl, val_dl, args, test_dl=test_dl)
+        elif args.fusion_type == "drfuse":
+            trainer = DrFuseTrainer(train_dl, val_dl, args, test_dl=test_dl)
+        elif args.fusion_type == "copula":
+            trainer = CopulaTrainer(train_dl, val_dl, args, test_dl=test_dl)
+        else:
+            trainer = FusionTrainer(train_dl, val_dl, args, test_dl=test_dl)
+
+        if args.mode == "train":
+            print("==> training")
+            trainer.train()
+            trainer.args.load_state = args.save_dir + "/best_checkpoint.pth.tar"
+            trainer.load_state()
+            trainer.eval()
+            # ret = trainer.eval()['joint'] if args.fusion_type == 'mmtm' else trainer.eval()
+            # auprcs.append(ret['auprc_mean'])
+            # aurocs.append(ret['auroc_mean'])
+            # f1s.append(ret['f1_mean'])
+
+        elif args.mode == "eval":
+            trainer.args.load_state = args.save_dir + "/best_checkpoint.pth.tar"
+            trainer.load_state()
+            trainer.eval()
+            # ret = trainer.eval()['joint'] if args.fusion_type == 'mmtm' else trainer.eval()
+            # auprcs.append(ret['auprc_mean'])
+            # aurocs.append(ret['auroc_mean'])
+            # f1s.append(ret['f1_mean'])
+        else:
+            raise ValueError("not Implementation for args.mode")
+
+    # aurocs = np.array(aurocs)
+    # auprcs = np.array(auprcs)
+    # f1s = np.array(f1s)
+
+    # mean_auroc = np.mean(aurocs)
+    # std_auroc = np.std(aurocs)
+    # mean_auprc = np.mean(auprcs)
+    # std_auprc = np.std(auprcs)
+    # mean_f1 = np.mean(f1s)
+    # std_f1 = np.std(f1s)
+
+    # print(f"==> auroc: {mean_auroc:.4f} +/- {std_auroc:.4f}")
+    # print(f"==> auprc: {mean_auprc:.4f} +/- {std_auprc:.4f}")
+    # print(f"==> f1: {mean_f1:.4f} +/- {std_f1:.4f}")

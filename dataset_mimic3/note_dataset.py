@@ -4,7 +4,6 @@ import numpy as np
 import json
 import torch
 from torch.utils.data import Dataset
-from torch.nn.utils.rnn import pad_sequence
 from transformers import AutoTokenizer
 
 
@@ -14,19 +13,29 @@ def lookup(w2i_lookup, x):
     else:
         return len(w2i_lookup)
 
+
 def diff(time1, time2):
     # compute time2-time1
     # return difference in hours
     a = np.datetime64(time1)
     b = np.datetime64(time2)
-    h = (b-a).astype('timedelta64[h]').astype(int)
-    '''if h < -1e-6:
+    h = (b - a).astype("timedelta64[h]").astype(int)
+    """if h < -1e-6:
         print(h)
-        assert h > 1e-6'''
+        assert h > 1e-6"""
     return h
 
+
 class MIMICNOTE(Dataset):
-    def __init__(self, dataset_dir, bert_type="yikuan8/Clinical-Longformer", task="in-hospital-mortality", split="train", return_names=True, period_length=48.0):
+    def __init__(
+        self,
+        dataset_dir,
+        bert_type="yikuan8/Clinical-Longformer",
+        task="in-hospital-mortality",
+        split="train",
+        return_names=True,
+        period_length=48.0,
+    ):
         self.return_names = return_names
         self._period_length = period_length
         self._dataset_dir = dataset_dir
@@ -34,31 +43,34 @@ class MIMICNOTE(Dataset):
         with open(listfile_path, "r") as lfile:
             self._data = lfile.readlines()
         self._listfile_header = self._data[0]
-        self.CLASSES = self._listfile_header.strip().split(',')[3:]
+        self.CLASSES = self._listfile_header.strip().split(",")[3:]
         self._data = self._data[1:]
-        self._data = [line.split(',') for line in self._data]
+        self._data = [line.split(",") for line in self._data]
         self.data_map = {
             mas[0]: {
-                'labels': list(map(float, mas[3:])),
-                'stay_id': float(mas[2]),
-                'time': float(mas[1]),
-                }
-                for mas in self._data
+                "labels": list(map(float, mas[3:])),
+                "stay_id": float(mas[2]),
+                "time": float(mas[1]),
+            }
+            for mas in self._data
         }
         self.names = list(self.data_map.keys())
 
-        if (split == 'train') or (split == 'val'):
+        if (split == "train") or (split == "val"):
             self.note_path = os.path.join(dataset_dir, "train_text_fixed")
             self.starttime_path = os.path.join(dataset_dir, "train_starttime.pkl")
-        elif split == 'test':
+        elif split == "test":
             self.note_path = os.path.join(dataset_dir, "test_text_fixed")
             self.starttime_path = os.path.join(dataset_dir, "test_starttime.pkl")
         self.all_files = set(os.listdir(self.note_path))
-        with open(self.starttime_path, 'rb') as f:
+        with open(self.starttime_path, "rb") as f:
             self.episodeToStartTime = pickle.load(f)
-        
-        data_text, data_times, data_time, filtered_names = self.read_all_text_append_json(
-            self.names, self._period_length, NumOfNotes=5, notes_aggeregate='Last')
+
+        data_text, data_times, data_time, filtered_names = (
+            self.read_all_text_append_json(
+                self.names, self._period_length, NumOfNotes=5, notes_aggeregate="Last"
+            )
+        )
         self.data_text = data_text
         self.filtered_names = filtered_names
         self.bert_type = bert_type
@@ -67,14 +79,14 @@ class MIMICNOTE(Dataset):
 
     def get_name_from_filename(self, fname):
         # '24610_episode1_timeseries.csv'
-        tokens = fname.split('_')
+        tokens = fname.split("_")
         pid = tokens[0]
-        episode_id = tokens[1].replace('episode', '').strip()
+        episode_id = tokens[1].replace("episode", "").strip()
         return pid, episode_id
-    
+
     def read_text_event_json(self, text_file_name):
         filepath = os.path.join(self.note_path, str(text_file_name))
-        with open(filepath, 'r') as f:
+        with open(filepath, "r") as f:
             d = json.load(f)
         time = sorted(d.keys())
         text = []
@@ -82,8 +94,10 @@ class MIMICNOTE(Dataset):
             text.append(" ".join(d[t]))
         assert len(time) == len(text)
         return time, text
-    
-    def read_all_text_append_json(self, names, period_length=48.0, NumOfNotes=5, notes_aggeregate='Last'):
+
+    def read_all_text_append_json(
+        self, names, period_length=48.0, NumOfNotes=5, notes_aggeregate="Last"
+    ):
         texts_dict = {}
         time_dict = {}
         start_times = {}
@@ -98,17 +112,17 @@ class MIMICNOTE(Dataset):
                     continue
                 final_concatenated_text = []
                 times_array = []
-                for (t, txt) in zip(time, texts):
+                for t, txt in zip(time, texts):
                     # and  diff(start_time, t)>=(-24-1e-6)
                     if diff(start_time, t) <= period_length + 1e-6:
                         final_concatenated_text.append(txt)
                         times_array.append(t)
                     else:
                         break
-                # if length of notes is less than NumOfNotes, skip this patient 
+                # if length of notes is less than NumOfNotes, skip this patient
                 if len(final_concatenated_text) <= NumOfNotes:
                     continue
-                if notes_aggeregate == 'First':
+                if notes_aggeregate == "First":
                     texts_dict[patient_id] = final_concatenated_text[:NumOfNotes]
                     time_dict[patient_id] = times_array[:NumOfNotes]
                 else:
@@ -121,19 +135,21 @@ class MIMICNOTE(Dataset):
     def __getitem__(self, index):
         if isinstance(index, int):
             index = self.filtered_names[index]
-        label = self.data_map[index]['labels']
+        label = self.data_map[index]["labels"]
         text_token = []
         atten_mask = []
         text = self.data_text[index]
         for t in text:
-            inputs = self.tokenizer.encode_plus(t,
-                                                padding="max_length",
-                                                max_length=512,
-                                                add_special_tokens=True,
-                                                return_attention_mask=True,
-                                                truncation=True)
-            text_token.append(inputs['input_ids'])
-            attention_mask = inputs['attention_mask']
+            inputs = self.tokenizer.encode_plus(
+                t,
+                padding="max_length",
+                max_length=512,
+                add_special_tokens=True,
+                return_attention_mask=True,
+                truncation=True,
+            )
+            text_token.append(inputs["input_ids"])
+            attention_mask = inputs["attention_mask"]
             if "Longformer" in self.bert_type:
                 attention_mask[0] += 1  # type: ignore
                 atten_mask.append(attention_mask)
@@ -141,26 +157,44 @@ class MIMICNOTE(Dataset):
                 atten_mask.append(attention_mask)
         text_token = torch.tensor(text_token, dtype=torch.long)
         atten_mask = torch.tensor(atten_mask, dtype=torch.long)
-        label = torch.tensor(label, dtype=torch.float) if len(label) > 1 else torch.tensor(label, dtype=torch.float)[0]
+        label = (
+            torch.tensor(label, dtype=torch.float)
+            if len(label) > 1
+            else torch.tensor(label, dtype=torch.float)[0]
+        )
 
-        return text_token, atten_mask, label # bs * num_notes * max_length, bs * num_notes * max_length, bs * num_labels
-    
+        return (
+            text_token,
+            atten_mask,
+            label,
+        )  # bs * num_notes * max_length, bs * num_notes * max_length, bs * num_labels
+
     def __len__(self):
         return len(self.filtered_names)
 
+
 def get_note_datasets(args):
     data_dir = args.ehr_data_dir
-    dataset_train = MIMICNOTE(data_dir, bert_type=args.bert_type, task=args.task, split='train')
-    dataset_validate = MIMICNOTE(data_dir, bert_type=args.bert_type, task=args.task, split='val')
-    dataset_test = MIMICNOTE(data_dir, bert_type=args.bert_type, task=args.task, split='test')
+    dataset_train = MIMICNOTE(
+        data_dir, bert_type=args.bert_type, task=args.task, split="train"
+    )
+    dataset_validate = MIMICNOTE(
+        data_dir, bert_type=args.bert_type, task=args.task, split="val"
+    )
+    dataset_test = MIMICNOTE(
+        data_dir, bert_type=args.bert_type, task=args.task, split="test"
+    )
 
     return dataset_train, dataset_validate, dataset_test
 
+
 if __name__ == "__main__":
     import sys
+
     sys.path.append("/home/fwu/Documents/myProjects/MedFuse/")
     from torch.utils.data import DataLoader
     from arguments import args_parser
+
     parser = args_parser()
     args = parser.parse_args()
     args.ehr_data_dir = "/disk1/fwu/myProjects/MedFuse/data_mimic3"
@@ -178,7 +212,7 @@ if __name__ == "__main__":
         break
     # print(batch)
 
-'''
+"""
 in-hospital mortality:
     length of training dataset:  3652
     length of validation dataset:  815
@@ -191,6 +225,4 @@ phenotyping_48h:
     length of training dataset:  3652
     length of validation dataset:  815
     length of testing dataset:  806
-'''
-
-
+"""

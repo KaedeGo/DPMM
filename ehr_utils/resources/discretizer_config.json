@@ -42,12 +42,8 @@
       "0.0",
       "1.0"
     ],
-    "Diastolic blood pressure": [
-
-    ],
-    "Fraction inspired oxygen": [
-
-    ],
+    "Diastolic blood pressure": [],
+    "Fraction inspired oxygen": [],
     "Glascow coma scale eye opening": [
       "To Pain",
       "3 To speech",
@@ -101,36 +97,16 @@
       "2 Incomp sounds",
       "3 Inapprop words"
     ],
-    "Glucose": [
-
-    ],
-    "Heart Rate": [
-
-    ],
-    "Height": [
-
-    ],
-    "Mean blood pressure": [
-
-    ],
-    "Oxygen saturation": [
-
-    ],
-    "Respiratory rate": [
-
-    ],
-    "Systolic blood pressure": [
-
-    ],
-    "Temperature": [
-
-    ],
-    "Weight": [
-
-    ],
-    "pH": [
-
-    ]
+    "Glucose": [],
+    "Heart Rate": [],
+    "Height": [],
+    "Mean blood pressure": [],
+    "Oxygen saturation": [],
+    "Respiratory rate": [],
+    "Systolic blood pressure": [],
+    "Temperature": [],
+    "Weight": [],
+    "pH": []
   },
   "normal_values": {
     "Capillary refill rate": "0.0",

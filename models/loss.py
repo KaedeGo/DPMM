@@ -9,6 +9,8 @@ from numpy import linalg as LA
 from torch.nn.functional import kl_div, softmax, log_softmax
 from torch.distributions import MultivariateNormal
 
+from scipy.stats import beta
+
 from .mvnorm import multivariate_normal_cdf as Phi
 
 
@@ -273,8 +275,340 @@ class CopulaLoss(nn.Module):
                 - torch.log(self.std_dev)
                 - ((x - self.mu) ** 2) / (2 * self.std_dev ** 2)).sum(dim=-1)
 
+class Copula3DLoss(nn.Module):
+
+    def __init__(self, dim=256, K=3, rho_scale=-5, family="Gumbel"):
+        super(Copula3DLoss, self).__init__()
+        """
+        Copula 3D Loss
+        """
+        self.theta = nn.Parameter(torch.ones(1) * 1)
+
+        self.pi_x = nn.Parameter(torch.ones([K]) / K)
+        self.pi_y = nn.Parameter(torch.ones([K]) / K)
+        self.pi_z = nn.Parameter(torch.ones([K]) / K)
+
+        if family == "Gumbel":
+            self.copula_cdf = self.gumbel_cdf
+            self.copula_pdf = self.gumbel_cdf # TODO: Use the correct pdf later...
+        elif family == "Clayton":
+            self.copula_cdf = self.clayton_cdf
+            self.copula_pdf = self.clayton_pdf
+        elif family == "Gaussian":
+            self.copula_cdf = self.gaussian_copula_cdf
+            self.copula_pdf = self.gaussian_copula_pdf
+        elif family == "Frank":
+            self.copula_cdf = self.frank_cdf
+            self.copula_pdf = self.frank_pdf
 
 
+        self.mu_x = nn.Parameter(torch.zeros([K, dim]))
+        self.mu_y = nn.Parameter(torch.zeros([K, dim]))
+        self.mu_z = nn.Parameter(torch.zeros([K, dim]))
+        self.log_cov_x = nn.Parameter(torch.ones([K, dim]) * -4)
+        self.log_cov_y = nn.Parameter(torch.ones([K, dim]) * -4)
+        self.log_cov_z = nn.Parameter(torch.ones([K, dim]) * -4)
+        self.K = K
+
+    def forward(self, x, y, z):
+
+        pi_x = self.pi_x.log_softmax(dim=-1)
+        pi_y = self.pi_y.log_softmax(dim=-1)
+        pi_z = self.pi_z.log_softmax(dim=-1)
+
+        cov_x = torch.log1p(torch.exp(self.log_cov_x)).clamp(min=1e-15)
+        cov_y = torch.log1p(torch.exp(self.log_cov_y)).clamp(min=1e-15)
+        cov_z = torch.log1p(torch.exp(self.log_cov_z)).clamp(min=1e-15)
+
+        log_u_list = [self.mvn_cdf(x, self.mu_x[k], cov_x[k]) for k in range(self.K)]
+        log_v_list = [self.mvn_cdf(y, self.mu_y[k], cov_y[k]) for k in range(self.K)]
+        log_w_list = [self.mvn_cdf(z, self.mu_z[k], cov_z[k]) for k in range(self.K)]
+        c_list = [self.copula_pdf(u, v, w) for u, v, w in zip(log_u_list, log_v_list, log_w_list)]
+        # c = self.gumbel_pdf(u, v)
+        # c = self.gumbel_cdf(u, v)
+
+        # loss = torch.cat(c_list)
+        u_log_pdf = [self.mvn_pdf(x, self.mu_x[k], cov_x[k]) for k in range(self.K)]
+        v_log_pdf = [self.mvn_pdf(y, self.mu_y[k], cov_y[k]) for k in range(self.K)]
+        w_log_pdf = [self.mvn_pdf(z, self.mu_z[k], cov_z[k]) for k in range(self.K)]
+        loss = torch.stack(c_list, dim=1) + torch.stack(u_log_pdf, dim=1) + pi_x + torch.stack(v_log_pdf, dim=1) + pi_y + torch.stack(w_log_pdf, dim=1) + pi_z
+        loss = torch.logsumexp(loss, -1).mean(0)
+
+        assert not torch.isinf(torch.stack(u_log_pdf, dim=1)).any()
+        assert not torch.isinf(torch.stack(v_log_pdf, dim=1)).any()
+        assert not torch.isinf(torch.stack(w_log_pdf, dim=1)).any()
+        assert not torch.isinf(torch.stack(c_list, dim=1)).any()
+
+        assert loss.dim() == 0
+        assert not torch.isnan(loss)
+
+        return - loss  #  ELBO = negative of likelihood
+
+    def rsample(self, n_samples=[0]):
+        """
+        Sample (gradient-preserving) from Gaussian mixture
+        Only for y
+        """
+        pi_x = self.pi_x.softmax(dim=-1).clamp(min=1e-15)
+        pi_y = self.pi_y.softmax(dim=-1).clamp(min=1e-15)
+
+        cov_x = torch.log1p(torch.exp(self.log_cov_x)).clamp(min=1e-15)
+        cov_y = torch.log1p(torch.exp(self.log_cov_y)).clamp(min=1e-15)
+
+        # Using reparameterization tricks
+        assert not torch.isnan(self.mu_x).any()
+        assert not torch.isnan(cov_x).any()
+        assert not torch.isnan(pi_x).any()
+        assert not torch.isnan(self.mu_y).any()
+        assert not torch.isnan(cov_y).any()
+        assert not torch.isnan(pi_y).any()
+        x_samples = [MultivariateNormal(self.mu_x[k], scale_tril=torch.diag(cov_x[k])).rsample(sample_shape=n_samples) * pi_x[k] for k in range(self.K)]
+        y_samples = [MultivariateNormal(self.mu_y[k], scale_tril=torch.diag(cov_y[k])).rsample(sample_shape=n_samples) * pi_y[k] for k in range(self.K)]
+
+        x_samples = torch.stack(x_samples, dim=0).sum(dim=0)
+        y_samples = torch.stack(y_samples, dim=0).sum(dim=0)
+        assert not torch.isnan(x_samples).any()
+        assert not torch.isnan(y_samples).any()
+
+        assert not torch.isinf(x_samples).any()
+        assert not torch.isinf(y_samples).any()
+
+        return y_samples
+
+    def gumbel_cdf(self, log_u, log_v, log_w):
+        theta = self.theta.clamp(min=1)
+
+        g = (-log_u) ** theta + (-log_v) ** theta + (-log_w) ** theta
+        log_copula_cdf = - g ** (1 / theta)
+
+        return log_copula_cdf
+
+    def gumbel_density(self, u, v, w):
+        """
+        Density of Bivariate Gumbel Copula
+        """
+        g = (- torch.log(u)) ** self.theta + (- torch.log(v)) ** self.theta
+        copula_cdf = torch.exp(- g ** (1 / self.theta))
+        density = g ** (2 * (1 - self.theta) / self.theta) * ((self.theta - 1) * g ** (- 1 / self.theta) + 1)
+        density *= copula_cdf
+        density *= (- torch.log(u)) ** (self.theta - 1) * (- torch.log(v)) ** (self.theta - 1)
+        density /= u * v
+
+        return density
+
+    def clayton_cdf(self, log_u, log_v):
+        alpha = self.theta.clamp(1e-5)
+
+        log_copula_cdf = torch.exp(-alpha * log_u) + torch.exp(-alpha * log_v) - 1
+        log_copula_cdf = torch.log(log_copula_cdf.clamp())
+
+        return log_copula_cdf
+
+    def clayton_pdf(self, log_u, log_v):
+        pass
+
+    def frank_cdf(self, log_u, log_v):
+        theta = self.theta
+
+        u = torch.exp(log_u)
+        v = torch.exp(log_v)
+
+        cdf = torch.exp(-theta * u - 1) * torch.exp(-theta * v - 1)
+        cdf /= torch.exp(-theta - 1)
+        cdf += 1
+        cdf = - torch.log(cdf.clamp(1e-9)) / theta
+        cdf = torch.log(cdf.clamp(1e-9))
+
+        assert not torch.isnan(cdf).any()
+
+        return cdf
+
+
+    def frank_pdf(self, log_u, log_v):
+        theta = self.theta
+
+        # Performed some standardization
+        u = torch.exp(- ((log_u - torch.mean(log_u)) / torch.std(log_u)) ** 2 / 2)
+        v = torch.exp(- ((log_v - torch.mean(log_v)) / torch.std(log_v)) ** 2 / 2)
+
+        pdf = (torch.exp(-theta) - 1) * -theta * torch.exp(-theta * (u + v))
+        pdf = torch.log(pdf.clamp(1e-5))
+        pdf -= 2 * torch.logsumexp(torch.stack([
+            -theta * torch.ones_like(u),
+            -theta * u,
+            -theta * v,
+            -theta * (u+v)
+        ]), dim=0)
+
+        return pdf
+
+    def gaussian_copula_cdf(self, log_u, log_v):
+        pass
+
+    def gaussian_copula_pdf(self, log_u, log_v):
+        rho = torch.tanh(self.theta)
+
+        u = torch.exp(- ((log_u - torch.mean(log_u)) / torch.std(log_u)) ** 2 / 2).clamp(min=1e-6, max=0.99999)
+        v = torch.exp(- ((log_v - torch.mean(log_v)) / torch.std(log_v)) ** 2 / 2).clamp(min=1e-6, max=0.99999)
+
+        a = np.sqrt(2) * torch.erfinv(2 * u - 1)
+        b = np.sqrt(2) * torch.erfinv(2 * v - 1)
+
+        assert not torch.isinf(a).any()
+        assert not torch.isinf(b).any()
+
+        log_pdf = - ((a ** 2 + b ** 2) * rho ** 2 - 2 * a * b * rho) / (2 * (1 - rho ** 2))
+        log_pdf -= 0.5 * torch.log((1 - rho ** 2).clamp(min=0.001))
+        return log_pdf
+
+    def mvn_cdf(self, x, mu, cov):
+        """
+        Log CDF of multivariate normal distribution
+        """
+        m = mu - x  # actually do P(Y-value<0)
+        m_shape = m.shape
+        d = m_shape[-1]
+        z = -m / cov
+        q = (torch.erfc(-z*0.70710678118654746171500846685)/2)
+        q = q.clamp(min=1e-15)
+        phi = torch.log(q).sum(-1)
+        phi = phi.clamp(max=phi[phi < 0].max(-1)[0])
+
+        return phi
+        # return Phi(x, mu, cov)
+
+    def mvn_pdf(self, x, mu, cov):
+        """
+        PDF of multivariate normal distribution
+        """
+        log_pdf = MultivariateNormal(mu, scale_tril=torch.diag(cov)).log_prob(x)
+
+        return log_pdf
+
+    def mvn_log_pdf(self, x):
+        """
+        PDF of multivariate normal distribution
+        """
+
+        return (-torch.log(torch.sqrt(2 * torch.pi))
+                - torch.log(self.std_dev)
+                - ((x - self.mu) ** 2) / (2 * self.std_dev ** 2)).sum(dim=-1)
+
+
+class DirichletProcessLoss(nn.Module):
+
+    def __init__(self, dim=256, K=3, rho_scale=-5, eta=1, family="Gumbel"):
+        super(DirichletProcessLoss, self).__init__()
+        """
+        !!! One of the variants !!!
+        """
+        self.theta = nn.Parameter(torch.ones(1) * 1)
+
+        self.pi_x = nn.Parameter(torch.ones([K]) / K)
+        self.pi_y = nn.Parameter(torch.ones([K]) / K)
+
+        self.eta = eta
+        self.gamma_1 = torch.ones(self.T)
+        self.gamma_2 = torch.ones(self.T) * eta
+
+        self.eta = eta
+        self.log_phi = torch.ones(self.k) / self.k
+
+
+        self.mu_x = nn.Parameter(torch.zeros([K, dim]))
+        self.mu_y = nn.Parameter(torch.zeros([K, dim]))
+        self.log_cov_x = nn.Parameter(torch.ones([K, dim]) * -4)
+        self.log_cov_y = nn.Parameter(torch.ones([K, dim]) * -4)
+
+        self.K = K
+
+    def _estimate_log_weights(self):
+        digamma_sum = torch.digamma(
+            self.gamma_1 + self.gamma_2
+        ).cuda()
+        digamma_a = torch.digamma(self.gamma_1).cuda()
+        digamma_b = torch.digamma(self.gamma_2).cuda()
+
+        return (
+                digamma_a
+                - digamma_sum
+                + torch.hstack((
+            torch.zeros(1, device=digamma_a.device),
+            torch.cumsum(digamma_b - digamma_sum, 0)[:-1]
+        ))
+        )
+
+    def _update_gamma(self, nk):
+        """Estimate the parameters of the Dirichlet distribution.
+
+        Parameters
+        ----------
+        nk : array-like of shape (n_components,)
+        """
+
+        gamma_2 = self.eta + np.hstack((np.cumsum(nk.detach().cpu().numpy()[::-1])[-2::-1], 0))
+        self.gamma_2 = torch.from_numpy(gamma_2).cuda()
+        self.gamma_1 = 1 + nk
+
+    def forward(self, x, y):
+
+        # TODO Draw Pi with Dirichlet process
+
+        beta = self.sample_beta(batch_size)
+        pi_x = self.mix_weights(beta)[:, :-1]
+
+        cov_x = torch.log1p(torch.exp(self.log_cov_x)).clamp(min=1e-15)
+        cov_y = torch.log1p(torch.exp(self.log_cov_y)).clamp(min=1e-15)
+
+        # loss = torch.cat(c_list)
+        u_log_pdf = [self.mvn_pdf(x, self.mu_x[k], cov_x[k]) for k in range(self.K)]
+        v_log_pdf = [self.mvn_pdf(y, self.mu_y[k], cov_y[k]) for k in range(self.K)]
+        loss = torch.stack(u_log_pdf, dim=1) + torch.stack(v_log_pdf, dim=1)
+        loss = torch.logsumexp(loss, -1).mean(0)
+
+        assert not torch.isinf(torch.stack(u_log_pdf, dim=1)).any()
+        assert not torch.isinf(torch.stack(v_log_pdf, dim=1)).any()
+
+        assert loss.dim() == 0
+        assert not torch.isnan(loss)
+
+        return - loss  #  ELBO = negative of likelihood
+
+        pass
+
+    def infer(self, x):
+        """
+        Get logit
+
+        return: Logits with length T
+        """
+
+        # TODO Change it to
+
+        beta = self.sample_beta(x.shape[0])
+        pi = self.mix_weights(beta)[:, :-1]
+        log_pdfs = self.get_log_prob(x)
+        logits = torch.log(pi) + log_pdfs
+        assert not torch.isnan(logits).any()
+        # logits = F.normalize(logits, dim=2)
+
+        return logits
+
+    def sample_beta(self, size):
+        a = self.gamma_1.detach().cpu().numpy()
+        b = self.gamma_2.detach().cpu().numpy()
+
+        samples = beta.rvs(a, b, size=(size, self.T))
+        samples = torch.from_numpy(samples).cuda()
+
+        return samples
+
+    def update_phi(self):
+        nk = self._estimate_nk(self.log_phi)
+        self._update_gamma(nk)
+
+    def set_log_phi(self, log_phi):
+        self.log_phi = log_phi
 
 
 
