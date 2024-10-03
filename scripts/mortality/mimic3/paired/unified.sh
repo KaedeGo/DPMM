@@ -9,7 +9,5 @@ CUDA_VISIBLE_DEVICES=0 CUDA_LAUNCH_BLOCKING=1 python fusion_main_mimic3.py \
 --task in-hospital-mortality \
 --labels_set mortality \
 --fusion_type unified \
---normalizer_state /disk1/fwu/myProjects/MedFuse/data_mimic3/ihm_ts.normalizer \
---ehr_data_dir /disk1/fwu/myProjects/MedFuse/data_mimic3 \
 --save_dir checkpoints/mortality/mimic3/paired/unified
 # nohup sh scripts/mortality/mimic3/paired/unified.sh > logs/ihm_mimic3/paired/unified.log 2>&1 &

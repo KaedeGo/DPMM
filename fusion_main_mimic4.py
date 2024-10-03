@@ -3,11 +3,11 @@ from __future__ import print_function
 import numpy as np
 import os
 import random
-from trainers.fusion_trainer import FusionTrainer
-from trainers.mmtm_trainer import MMTMTrainer
-from trainers.daft_trainer import DAFTTrainer
-from trainers.drfuse_trainer import DrFuseTrainer
-from trainers.copula_trainer import CopulaTrainer
+from trainers.mimic4.fusion_trainer import FusionTrainer
+from trainers.mimic4.mmtm_trainer import MMTMTrainer
+from trainers.mimic4.daft_trainer import DAFTTrainer
+from trainers.mimic4.drfuse_trainer import DrFuseTrainer
+from trainers.mimic4.copula_trainer import CopulaTrainer
 from ehr_utils.preprocessing import Discretizer, Normalizer
 from dataset_mimic4.ehr_dataset import get_datasets
 from dataset_mimic4.cxr_dataset import get_cxr_datasets
@@ -77,7 +77,7 @@ if __name__ == "__main__":
     # args.cxr_data_dir = CXR_DATA_DIR
     # args.normalizer_state = MIMIC4_READM_NORMALIZER_PATH if args.task == "readmission" else MIMIC4_IHM_NORMALIZER_PATH
     if args.missing_token is not None:
-        from trainers.fusion_tokens_trainer import FusionTokensTrainer as FusionTrainer
+        from trainers.mimic4.fusion_tokens_trainer import FusionTokensTrainer as FusionTrainer
 
     path = Path(args.save_dir)
     path.mkdir(parents=True, exist_ok=True)

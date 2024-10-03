@@ -12,7 +12,5 @@ CUDA_VISIBLE_DEVICES=0 CUDA_LAUNCH_BLOCKING=1 python fusion_main_mimic3.py \
 --copula_fuse_type lstm \
 --copula 0.00005 \
 --copula_resample False \
---normalizer_state /disk1/fwu/myProjects/MedFuse/data_mimic3/ihm_ts.normalizer \
---ehr_data_dir /disk1/fwu/myProjects/MedFuse/data_mimic3 \
 --save_dir checkpoints/mortality/mimic3/abalation/copula_partial_wo_resample.5
 # nohup sh scripts/mortality/mimic3/abalation/copula_partial_wo_resample.sh > logs/ihm_mimic3/abalation/copula_partial_wo_resample.log 2>&1 &

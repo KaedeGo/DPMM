@@ -1,4 +1,4 @@
-CUDA_VISIBLE_DEVICES=1 CUDA_LAUNCH_BLOCKING=1 python fusion_main_mimic3.py \
+CUDA_VISIBLE_DEVICES=2 CUDA_LAUNCH_BLOCKING=1 python fusion_main_mimic3.py \
 --dim 256 --dropout 0.3 --layers 2 \
 --vision_backbone resnet34 \
 --mode train \
@@ -8,8 +8,6 @@ CUDA_VISIBLE_DEVICES=1 CUDA_LAUNCH_BLOCKING=1 python fusion_main_mimic3.py \
 --task in-hospital-mortality \
 --fusion_type mmtm --layer_after 4 \
 --labels_set mortality \
---normalizer_state /disk1/fwu/myProjects/MedFuse/data_mimic3/ihm_ts.normalizer \
---ehr_data_dir /disk1/fwu/myProjects/MedFuse/data_mimic3 \
 --save_dir checkpoints/mortality/mimic3/partial/mmtm
 
 # nohup sh scripts/mortality/mimic3/partial/mmtm.sh > logs/ihm_mimic3/partial/mmtm.log 2>&1 &

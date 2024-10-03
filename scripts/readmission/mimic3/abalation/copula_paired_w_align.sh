@@ -11,8 +11,6 @@ CUDA_VISIBLE_DEVICES=2 CUDA_LAUNCH_BLOCKING=1 python fusion_main_mimic3.py \
 --fusion_type copula \
 --copula_fuse_type lstm \
 --copula 1 \
---replace_w_align True \
---normalizer_state /disk1/fwu/myProjects/MedFuse/data_mimic3/readm_ts.normalizer \
---ehr_data_dir /disk1/fwu/myProjects/MedFuse/data_mimic3 \
+--replace_w_align kl \
 --save_dir checkpoints/readm/mimic3/abalation/copula_paired_w_align
 # nohup sh scripts/readmission/mimic3/abalation/copula_paired_w_align.sh > logs/readm_mimic3/abalation/copula_paired_w_align.log 2>&1 &

@@ -11,8 +11,6 @@ CUDA_VISIBLE_DEVICES=2 CUDA_LAUNCH_BLOCKING=1 python fusion_main_mimic3.py \
 --task readmission \
 --labels_set readm \
 --fusion_type lstm \
---normalizer_state /disk1/fwu/myProjects/MedFuse/data_mimic3/readm_ts.normalizer \
---ehr_data_dir /disk1/fwu/myProjects/MedFuse/data_mimic3/ \
 --save_dir checkpoints/readm/mimic3/paired/medFuse
 
 # nohup sh scripts/readmission/mimic3/paired/medFuse.sh > logs/readm_mimic3/paired/medFuse.log 2>&1 &

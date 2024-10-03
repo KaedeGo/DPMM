@@ -12,7 +12,5 @@ CUDA_VISIBLE_DEVICES=2 CUDA_LAUNCH_BLOCKING=1 python fusion_main_mimic3.py \
 --copula_fuse_type lstm \
 --copula 0.00001 \
 --copula_family Frank \
---normalizer_state /disk1/fwu/myProjects/MedFuse/data_mimic3/ihm_ts.normalizer \
---ehr_data_dir /disk1/fwu/myProjects/MedFuse/data_mimic3 \
 --save_dir checkpoints/mortality/mimic3/paired/copula
 # nohup sh scripts/mortality/mimic3/paired/copula.sh > logs/ihm_mimic3/paired/copula.log 2>&1 &

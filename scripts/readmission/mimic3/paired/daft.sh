@@ -1,4 +1,4 @@
-CUDA_VISIBLE_DEVICES=3 CUDA_LAUNCH_BLOCKING=1 python fusion_main_mimic3.py \
+CUDA_VISIBLE_DEVICES=0 CUDA_LAUNCH_BLOCKING=1 python fusion_main_mimic3.py \
 --dim 256 --dropout 0.3 --layers 2 \
 --vision_backbone resnet34 \
 --mode train \
@@ -8,9 +8,6 @@ CUDA_VISIBLE_DEVICES=3 CUDA_LAUNCH_BLOCKING=1 python fusion_main_mimic3.py \
 --fusion_type daft --layer_after 4 \
 --labels_set readm \
 --task readmission \
---normalizer_state /disk1/fwu/myProjects/MedFuse/data_mimic3/readm_ts.normalizer \
---save_dir checkpoints/readm/mimic3/paired/daft \
---ehr_data_dir /disk1/fwu/myProjects/MedFuse/data_mimic3
-
+--save_dir checkpoints/readm/mimic3/paired/daft 
 
 # nohup sh scripts/readmission/mimic3/paired/daft.sh > logs/readm_mimic3/paired/daft.log 2>&1 &
