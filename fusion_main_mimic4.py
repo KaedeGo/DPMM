@@ -9,9 +9,9 @@ from trainers.daft_trainer import DAFTTrainer
 from trainers.drfuse_trainer import DrFuseTrainer
 from trainers.copula_trainer import CopulaTrainer
 from ehr_utils.preprocessing import Discretizer, Normalizer
-from datasets_mf.ehr_dataset import get_datasets
-from datasets_mf.cxr_dataset import get_cxr_datasets
-from datasets_mf.fusion import load_cxr_ehr
+from dataset_mimic4.ehr_dataset import get_datasets
+from dataset_mimic4.cxr_dataset import get_cxr_datasets
+from dataset_mimic4.fusion import load_cxr_ehr
 from pathlib import Path
 from paths import *
 import torch
