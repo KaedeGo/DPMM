@@ -132,14 +132,14 @@ class FusionTrainer(Trainer):
                 print(
                     f" epoch [{self.epoch:04d} / {self.args.epochs:04d}] [{i:04}/{steps}] eta: {eta:<20}  lr: \t{self.optimizer.param_groups[0]['lr']:0.4E} \tloss: {epoch_loss/i:0.5f} loss align: \t{epoch_loss_align/i:0.4f}"
                 )
-        ret = self.computeAUROC(
-            outGT.data.cpu().numpy(), outPRED.data.cpu().numpy(), "train"
-        )
+        # ret = self.computeAUROC(
+        #     outGT.data.cpu().numpy(), outPRED.data.cpu().numpy(), "train"
+        # )
         self.epochs_stats["loss train"].append(epoch_loss / i)
         self.epochs_stats["loss align train"].append(epoch_loss_align / i)
-        return ret
+        # return ret
 
-    def validate(self, dl):
+    def validate(self, dl, use_best_thresh=False):
         print(f"starting val epoch {self.epoch}")
         epoch_loss = 0
         epoch_loss_align = 0
@@ -176,7 +176,7 @@ class FusionTrainer(Trainer):
             f"val [{self.epoch:04d} / {self.args.epochs:04d}] validation loss: \t{epoch_loss/i:0.5f} \t{epoch_loss_align/i:0.5f}"
         )
         ret = self.computeAUROC(
-            outGT.data.cpu().numpy(), outPRED.data.cpu().numpy(), "validation"
+            outGT.data.cpu().numpy(), outPRED.data.cpu().numpy(), use_best_thresh
         )
         np.save(f"{self.args.save_dir}/pred.npy", outPRED.data.cpu().numpy())
         np.save(f"{self.args.save_dir}/gt.npy", outGT.data.cpu().numpy())
@@ -264,7 +264,7 @@ class FusionTrainer(Trainer):
         print("validating ... ")
         self.epoch = 0
         self.model.eval()
-        ret = self.validate(self.val_dl)
+        ret = self.validate(self.val_dl, use_best_thresh=True)
         self.print_and_write(
             ret,
             isbest=True,
@@ -272,14 +272,14 @@ class FusionTrainer(Trainer):
             filename="results_val.txt",
         )
         self.model.eval()
-        ret = self.validate(self.test_dl)
+        ret = self.validate(self.test_dl, use_best_thresh=True)
         self.print_and_write(
             ret,
             isbest=True,
             prefix=f"{self.args.fusion_type} test",
             filename="results_test.txt",
         )
-        return
+        return ret
 
     def train(self):
         print(f"running for fusion_type {self.args.fusion_type}")
@@ -290,6 +290,7 @@ class FusionTrainer(Trainer):
 
             if self.best_auroc < ret["auroc_mean"]:
                 self.best_auroc = ret["auroc_mean"]
+                self.best_threshold = ret['thresholds']
                 self.best_stats = ret
                 self.save_checkpoint(prefix="best")
                 self.print_and_write(ret, isbest=True)

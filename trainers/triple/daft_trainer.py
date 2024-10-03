@@ -122,7 +122,7 @@ class DAFTTrainer(Trainer):
 
         self.epochs_stats["loss train"].append(epoch_loss / i)
 
-    def validate(self, dl, full_run=False):
+    def validate(self, dl, full_run=False, use_best_thresh=False):
         print(f"starting val epoch {self.epoch}")
         epoch_loss = 0
         outGT = torch.FloatTensor().to(self.device)
@@ -163,7 +163,7 @@ class DAFTTrainer(Trainer):
             f"val [{self.epoch:04d} / {self.args.epochs:04d}] validation loss: \t{epoch_loss/i:0.5f}"
         )
         ret = self.computeAUROC(
-            outGT.data.cpu().numpy(), outPRED.data.cpu().numpy(), "validation"
+            outGT.data.cpu().numpy(), outPRED.data.cpu().numpy(), use_best_thresh
         )
 
         self.epochs_stats["loss val"].append(epoch_loss / i)
@@ -175,7 +175,7 @@ class DAFTTrainer(Trainer):
         print("validating ... ")
         self.epoch = 0
         self.model.eval()
-        ret = self.validate(self.val_dl, full_run=True)
+        ret = self.validate(self.val_dl, full_run=True, use_best_thresh=True)
         self.print_and_write(
             ret,
             isbest=True,
@@ -183,14 +183,14 @@ class DAFTTrainer(Trainer):
             filename="results_val.txt",
         )
         self.model.eval()
-        ret = self.validate(self.test_dl, full_run=True)
+        ret = self.validate(self.test_dl, full_run=True, use_best_thresh=True)
         self.print_and_write(
             ret,
             isbest=True,
             prefix=f"{self.args.fusion_type} test",
             filename="results_test.txt",
         )
-        return
+        return ret
 
     def train(self):
         print(f"running for fusion_type {self.args.fusion_type}")
@@ -209,6 +209,7 @@ class DAFTTrainer(Trainer):
 
             if self.best_auroc < ret["auroc_mean"]:
                 self.best_auroc = ret["auroc_mean"]
+                self.best_threshold = ret["thresholds"]
                 self.best_stats = ret
                 self.save_checkpoint()
                 self.print_and_write(ret, isbest=True)

@@ -118,7 +118,7 @@ class CopulaTrainer(Trainer):
                 )
 
         ret = self.computeAUROC(
-            outGT.data.cpu().numpy(), outPRED.data.cpu().numpy(), "train"
+            outGT.data.cpu().numpy(), outPRED.data.cpu().numpy(), use_best_thresh=True
         )
         self.epochs_stats["loss train"].append(epoch_loss / i)
         self.epochs_stats["loss copula train"].append(epoch_loss_copula / i)
@@ -130,13 +130,14 @@ class CopulaTrainer(Trainer):
                     "lr": self.optimizer.param_groups[0]["lr"],
                     "train_auroc": ret["auroc_mean"],
                     "trainauprc": ret["auprc_mean"],
+                    "train_f1": ret["f1_mean"],
                     "theta": self.model.copula_loss.theta.item(),
                 }
             )
 
         return ret
 
-    def validate(self, dl):
+    def validate(self, dl, use_best_thresh=False):
         print(f"starting val epoch {self.epoch}")
         epoch_loss = 0
         epoch_loss_copula = 0
@@ -176,7 +177,7 @@ class CopulaTrainer(Trainer):
             f"val [{self.epoch:04d} / {self.args.epochs:04d}] validation loss: \t{epoch_loss/i:0.5f}, validation copula loss: {epoch_loss_copula/i:0.5f}"
         )
         ret = self.computeAUROC(
-            outGT.data.cpu().numpy(), outPRED.data.cpu().numpy(), "validation"
+            outGT.data.cpu().numpy(), outPRED.data.cpu().numpy(), use_best_thresh
         )
         np.save(f"{self.args.save_dir}/pred.npy", outPRED.data.cpu().numpy())
         np.save(f"{self.args.save_dir}/gt.npy", outGT.data.cpu().numpy())
@@ -190,10 +191,13 @@ class CopulaTrainer(Trainer):
                 {
                     "val_auroc": ret["auroc_mean"],
                     "val_auprc": ret["auprc_mean"],
+                    "val_f1": ret["f1_mean"],
                     "val_auroc_ci_l": ret["ci_auroc"][0][0],
                     "val_auprc_ci_l": ret["ci_auprc"][0][0],
                     "val_auroc_ci_u": ret["ci_auroc"][0][1],
                     "val_auprc_ci_u": ret["ci_auprc"][0][1],
+                    "val_f1_ci_l": ret["ci_f1"][0][0],
+                    "val_f1_ci_u": ret["ci_f1"][0][1],
                 }
             )
 
@@ -230,7 +234,7 @@ class CopulaTrainer(Trainer):
 
         print(f"test [{self.epoch:04d} / {self.args.epochs:04d}]")
         ret = self.computeAUROC(
-            outGT.data.cpu().numpy(), outPRED.data.cpu().numpy(), "test"
+            outGT.data.cpu().numpy(), outPRED.data.cpu().numpy(), use_best_thresh=True
         )
         np.save(f"{self.args.save_dir}/pred.npy", outPRED.data.cpu().numpy())
         np.save(f"{self.args.save_dir}/gt.npy", outGT.data.cpu().numpy())
@@ -242,10 +246,13 @@ class CopulaTrainer(Trainer):
                 {
                     "test_auroc": ret["auroc_mean"],
                     "test_auprc": ret["auprc_mean"],
+                    "test_f1": ret["f1_mean"],
                     "test_auroc_ci_l": ret["ci_auroc"][0][0],
                     "test_auprc_ci_l": ret["ci_auprc"][0][0],
                     "test_auroc_ci_u": ret["ci_auroc"][0][1],
                     "test_auprc_ci_u": ret["ci_auprc"][0][1],
+                    "test_f1_ci_l": ret["ci_f1"][0][0],
+                    "test_f1_ci_u": ret["ci_f1"][0][1],
                 }
             )
 
@@ -276,7 +283,7 @@ class CopulaTrainer(Trainer):
         print("validating ... ")
         self.epoch = 0
         self.model.eval()
-        ret = self.validate(self.val_dl)
+        ret = self.validate(self.val_dl, use_best_thresh=True)
         self.print_and_write(
             ret,
             isbest=True,
@@ -284,14 +291,14 @@ class CopulaTrainer(Trainer):
             filename="results_val.txt",
         )
         self.model.eval()
-        ret = self.validate(self.test_dl)
+        ret = self.validate(self.test_dl, use_best_thresh=True)
         self.print_and_write(
             ret,
             isbest=True,
             prefix=f"{self.args.fusion_type} test",
             filename="results_test.txt",
         )
-        return
+        return ret
 
     def train(self):
         print(f"running for fusion_type {self.args.fusion_type}")
@@ -303,6 +310,7 @@ class CopulaTrainer(Trainer):
 
             if self.best_auroc < ret["auroc_mean"]:
                 self.best_auroc = ret["auroc_mean"]
+                self.best_threshold = ret['thresholds']
                 self.best_stats = ret
                 self.save_checkpoint(prefix="best")
                 self.print_and_write(ret, isbest=True)

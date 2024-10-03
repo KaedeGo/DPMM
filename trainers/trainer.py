@@ -48,6 +48,8 @@ class Trainer:
                 "acute",
             ]
         )
+        self.best_threshold = []
+
 
     def train(self):
         pass
@@ -114,7 +116,7 @@ class Trainer:
         plt.savefig(f"{disc}.pdf")
         plt.close()
 
-    def computeAUROC(self, y_true, predictions, verbose=1):
+    def computeAUROC(self, y_true, predictions, use_best_thresh=False):
         y_true = np.array(y_true)
         predictions = np.array(predictions)
 
@@ -127,35 +129,62 @@ class Trainer:
 
         auprc = metrics.average_precision_score(y_true, predictions, average=None)
 
+        if len(y_true.shape) == 1:
+            y_true = y_true[:, None]
+            predictions = predictions[:, None]
+
+        best_thresholds_epoch = []
+        for i in range(y_true.shape[1]):
+            _, _, thresholds = metrics.roc_curve(y_true[:, i], predictions[:, i])
+            thresholds = thresholds[1:]
+            all_f1_scores = []
+            for thres in thresholds:
+                cur_pred = np.where(predictions[:, i] > thres, 1, 0)
+                f1 = metrics.f1_score(y_true[:, i], cur_pred)
+                all_f1_scores.append(f1)
+            best_thres = thresholds[np.argmax(all_f1_scores)]
+            best_thresholds_epoch.append(best_thres)
+
+        if use_best_thresh:
+            best_thresholds = self.best_threshold
+        else:
+            best_thresholds = best_thresholds_epoch
+
         auc_scores = []
         auprc_scores = []
+        f1_scores = []
         ci_auroc = []
         ci_auprc = []
+        ci_f1 = [] 
+
         if len(y_true.shape) == 1:
             y_true = y_true[:, None]
             predictions = predictions[:, None]
         for i in range(y_true.shape[1]):
-            df = pd.DataFrame({"y_truth": y_true[:, i], "y_pred": predictions[:, i]})
-            (test_auprc, upper_auprc, lower_auprc), (
-                test_auroc,
-                upper_auroc,
-                lower_auroc,
-            ) = get_model_performance(df)
+            df = pd.DataFrame({'y_truth': y_true[:, i], 'y_pred': predictions[:, i]})
+            df['y_pred_binary'] = (df['y_pred'] > best_thresholds[i]).astype(int)
+            (test_auprc, upper_auprc, lower_auprc), (test_auroc, upper_auroc, lower_auroc), (test_f1, upper_f1, lower_f1) = get_model_performance(df)
             auc_scores.append(test_auroc)
             auprc_scores.append(test_auprc)
+            f1_scores.append(test_f1)
             ci_auroc.append((lower_auroc, upper_auroc))
             ci_auprc.append((lower_auprc, upper_auprc))
+            ci_f1.append((lower_f1, upper_f1))
 
         auc_scores = np.array(auc_scores)
         auprc_scores = np.array(auprc_scores)
+        f1_scores = np.array(f1_scores)
 
-        return {
-            "auc_scores": auc_scores,
-            "auroc_mean": np.mean(auc_scores),
-            "auprc_mean": np.mean(auprc_scores),
-            "auprc_scores": auprc_scores,
-            "ci_auroc": ci_auroc,
-            "ci_auprc": ci_auprc,
+        return {"auc_scores": auc_scores,
+                "auroc_mean": np.mean(auc_scores),
+                "auprc_mean": np.mean(auprc_scores),
+                "auprc_scores": auprc_scores, 
+                "f1_scores": f1_scores,
+                'f1_mean': np.mean(f1_scores),
+                'ci_auroc': ci_auroc,
+                'ci_auprc': ci_auprc,
+                'ci_f1': ci_f1,
+                'thresholds': best_thresholds_epoch
         }
 
     def step_lr(self, epoch):
@@ -237,18 +266,15 @@ class Trainer:
 
                 ci_auroc_all = []
                 ci_auprc_all = []
+                ci_f1_all = []
 
                 if len(ret["auc_scores"].shape) > 0:
 
-                    for index, class_auc in enumerate(ret["auc_scores"]):
-                        # line = f'{self.val_dl.dataset.CLASSES[index]: <90} & {class_auc:0.3f} & {ret["auprc_scores"][index]:0.3f} '
-                        line = f'{self.val_dl.dataset.CLASSES[index]: <90} & {class_auc:0.3f}({ret["ci_auroc"][index][1]:0.3f}, {ret["ci_auroc"][index][0]:0.3f}) & {ret["auprc_scores"][index]:0.3f} ({ret["ci_auprc"][index][1]:0.3f}, {ret["ci_auprc"][index][0]:0.3f}) '
-                        ci_auroc_all.append(
-                            [ret["ci_auroc"][index][0], ret["ci_auroc"][index][1]]
-                        )
-                        ci_auprc_all.append(
-                            [ret["ci_auprc"][index][0], ret["ci_auprc"][index][1]]
-                        )
+                    for index, class_auc in enumerate(ret['auc_scores']):
+                        line = f'{self.val_dl.dataset.CLASSES[index]: <90} & {class_auc:0.3f}({ret["ci_auroc"][index][1]:0.3f}, {ret["ci_auroc"][index][0]:0.3f}) & {ret["auprc_scores"][index]:0.3f} ({ret["ci_auprc"][index][1]:0.3f}, {ret["ci_auprc"][index][0]:0.3f}) & {ret["f1_scores"][index]:0.3f} ({ret["ci_f1"][index][1]:0.3f}, {ret["ci_f1"][index][0]:0.3f})' 
+                        ci_auroc_all.append([ret["ci_auroc"][index][0] , ret["ci_auroc"][index][1]])
+                        ci_auprc_all.append([ret["ci_auprc"][index][0] , ret["ci_auprc"][index][1]])
+                        ci_f1_all.append([ret["ci_f1"][index][0] , ret["ci_f1"][index][1]])
                         print(line)
                         results_file.write(line)
 
@@ -262,12 +288,15 @@ class Trainer:
 
                     ci_auroc_all.append([ret["ci_auroc"][0][0], ret["ci_auroc"][0][1]])
                     ci_auprc_all.append([ret["ci_auprc"][0][0], ret["ci_auprc"][0][1]])
+                    ci_f1_all.append([ret["ci_f1"][0][0] , ret["ci_f1"][0][1]])
 
                 ci_auroc_all = np.array(ci_auroc_all)
                 ci_auprc_all = np.array(ci_auprc_all)
+                ci_f1_all = np.array(ci_f1_all)
 
                 auc_scores = ret["auc_scores"]
                 auprc_scores = ret["auprc_scores"]
+                f1_scores = ret['f1_scores']
 
                 accute_aurocs = (
                     np.mean(auc_scores)
@@ -301,6 +330,10 @@ class Trainer:
                     else np.mean(auprc_scores[self.levels == "chronic"])
                 )
 
+                accute_f1 = np.mean(f1_scores) if self.args.labels_set != 'pheno' else np.mean(f1_scores[self.levels == 'acute'])
+                mixed_f1 = np.mean(f1_scores) if self.args.labels_set != 'pheno' else np.mean(f1_scores[self.levels == 'mixed'])
+                chronic_f1 = np.mean(f1_scores) if self.args.labels_set != 'pheno' else np.mean(f1_scores[self.levels == 'chronic'])
+
                 accute_aurocs_ci = (
                     np.mean(ci_auroc_all, axis=0)
                     if self.args.labels_set != "pheno"
@@ -333,18 +366,24 @@ class Trainer:
                     else np.mean(ci_auprc_all[self.levels == "chronic"], axis=0)
                 )
 
+                accute_f1_ci = np.mean(ci_f1_all, axis=0) if self.args.labels_set != 'pheno' else np.mean(ci_f1_all[self.levels == 'acute'], axis=0)
+                mixed_f1_ci = np.mean(ci_f1_all, axis=0) if self.args.labels_set != 'pheno' else np.mean(ci_f1_all[self.levels == 'mixed'], axis=0)
+                chronic_f1_ci = np.mean(ci_f1_all, axis=0) if self.args.labels_set != 'pheno' else np.mean(ci_f1_all[self.levels == 'chronic'], axis=0)
+
                 # import pdb; pdb.set_trace()
 
-                line = f"\n\n\n{prefix}  {self.epoch:<3} best mean auc :{ret['auroc_mean']:0.3f} mean auprc {ret['auprc_mean']:0.3f} \n\n\n\
-                    CI AUROC ({np.mean(ci_auroc_all[:, 0]):0.3f}, {np.mean(ci_auroc_all[:, 1]):0.3f}) CI AUPRC ({np.mean(ci_auprc_all[:, 0]):0.3f}, {np.mean(ci_auprc_all[:, 1]):0.3f}) \n\n\n \
+                line = f"\n\n\n{prefix}  {self.epoch:<3} best mean auc :{ret['auroc_mean']:0.3f} mean auprc {ret['auprc_mean']:0.3f} mean f1 {ret['f1_mean']:0.3f}\n\n\n \
+                    CI AUROC ({np.mean(ci_auroc_all[:, 0]):0.3f}, {np.mean(ci_auroc_all[:, 1]):0.3f}) CI AUPRC ({np.mean(ci_auprc_all[:, 0]):0.3f}, {np.mean(ci_auprc_all[:, 1]):0.3f}) CI F1 ({np.mean(ci_f1_all[:, 0]):0.3f}, {np.mean(ci_f1_all[:, 1]):0.3f})\n\n\n \
                     AUROC accute {accute_aurocs:0.3f} mixed {mixed_aurocs:0.3f} chronic {chronic_aurocs:0.3f}\n\n\n \
                     AUROC accute CI ({accute_aurocs_ci[0]:0.3f}, {accute_aurocs_ci[1]:0.3f}) mixed ({mixed_aurocs_ci[0]:0.3f} , {mixed_aurocs_ci[1]:0.3f}) chronic ({chronic_aurocs_ci[0]:0.3f}, {chronic_aurocs_ci[1]:0.3f})\n\n\n \
                     AUPRC accute  {accute_auprc:0.3f} mixed {mixed_auprc:0.3f} chronic {chronic_auprc:0.3f} \n\n\n \
                     AUPRC accute CI  ({accute_auprc_ci[0]:0.3f}, {accute_auprc_ci[1]:0.3f}) mixed ({mixed_auprc_ci[0]:0.3f},  {mixed_auprc_ci[1]:0.3f}) chronic ({chronic_auprc_ci[0]:0.3f}, {chronic_auprc_ci[1]:0.3f}) \n\n\n\
-                    "
+                    F1 accute {accute_f1:0.3f} mixed {mixed_f1:0.3f} chronic {chronic_f1:0.3f} \n\n\n \
+                    F1 accute CI ({accute_f1_ci[0]:0.3f}, {accute_f1_ci[1]:0.3f}) mixed ({mixed_f1_ci[0]:0.3f}, {mixed_f1_ci[1]:0.3f}) chronic ({chronic_f1_ci[0]:0.3f}, {chronic_f1_ci[1]:0.3f})\n\n\n\
+                    " 
                 print(line)
                 results_file.write(line)
             else:
-                line = f"\n\n\n{prefix}  {self.epoch:<3} mean auc :{ret['auroc_mean']:0.6f} mean auprc {ret['auprc_mean']:0.6f}\n\n\n "
+                line = f"\n\n\n{prefix}  {self.epoch:<3} mean auc :{ret['auroc_mean']:0.6f} mean auprc {ret['auprc_mean']:0.6f} mean f1 {ret['f1_mean']:0.6f}\n\n\n"
                 print(line)
                 results_file.write(line)

@@ -194,7 +194,7 @@ class DrFuseTrainer(Trainer):
         print("validating ... ")
         self.epoch = 0
         self.model.eval()
-        ret = self.validate(self.val_dl)
+        ret = self.validate(self.val_dl, use_best_thresh=True)
         self.print_and_write(
             ret,
             isbest=True,
@@ -202,14 +202,14 @@ class DrFuseTrainer(Trainer):
             filename="results_val.txt",
         )
         self.model.eval()
-        ret = self.validate(self.test_dl)
+        ret = self.validate(self.test_dl, use_best_thresh=True)
         self.print_and_write(
             ret,
             isbest=True,
             prefix=f"{self.args.fusion_type} test",
             filename="results_test.txt",
         )
-        return
+        return ret
 
     def train(self):
         print(f"running for fusion_type {self.args.fusion_type}")
@@ -285,13 +285,13 @@ class DrFuseTrainer(Trainer):
                 print(
                     f" epoch [{self.epoch:04d} / {self.args.epochs:04d}] [{i:04}/{steps}] eta: {eta:<20}  lr: \t{self.optimizer.param_groups[0]['lr']:0.4E} \tloss: {epoch_loss/i:0.5f}"
                 )
-        ret = self.computeAUROC(
-            outGT.data.cpu().numpy(), outPRED.data.cpu().numpy(), "train"
-        )
+        # ret = self.computeAUROC(
+        #     outGT.data.cpu().numpy(), outPRED.data.cpu().numpy(), "train"
+        # )
         self.epochs_stats["loss train"].append(epoch_loss / i)
-        return ret
+        # return ret
 
-    def validate(self, dl):
+    def validate(self, dl, use_best_thresh=False):
         print(f"starting val epoch {self.epoch}")
         epoch_loss = 0
         outGT = torch.FloatTensor().to(self.device)
@@ -339,7 +339,7 @@ class DrFuseTrainer(Trainer):
         )
 
         ret = self.computeAUROC(
-            outGT.data.cpu().numpy(), outPRED.data.cpu().numpy(), "validation"
+            outGT.data.cpu().numpy(), outPRED.data.cpu().numpy(), use_best_thresh
         )
         np.save(f"{self.args.save_dir}/pred.npy", outPRED.data.cpu().numpy())
         np.save(f"{self.args.save_dir}/gt.npy", outGT.data.cpu().numpy())

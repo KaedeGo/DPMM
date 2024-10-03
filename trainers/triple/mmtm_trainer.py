@@ -197,7 +197,7 @@ class MMTMTrainer(Trainer):
         self.epochs_stats["loss train joint"].append(joint_loss / i)
         self.epochs_stats["loss train align"].append(align_loss / i)
 
-    def validate(self, dl, full_run=False):
+    def validate(self, dl, full_run=False, use_best_thresh=False):
         print(f"starting val epoch {self.epoch}")
         epoch_loss = 0
         ehr_loss = 0
@@ -261,21 +261,21 @@ class MMTMTrainer(Trainer):
             f"val [{self.epoch:04d} / {self.args.epochs:04d}] validation loss: \t{epoch_loss/i:0.5f}"
         )
         ret = self.computeAUROC(
-            outGT.data.cpu().numpy(), outPRED.data.cpu().numpy(), "validation"
+            outGT.data.cpu().numpy(), outPRED.data.cpu().numpy(), use_best_thresh
         )
         ret_ehr = self.computeAUROC(
-            outGT.data.cpu().numpy(), outPRED_ehr.data.cpu().numpy(), "validation_ehr"
+            outGT.data.cpu().numpy(), outPRED_ehr.data.cpu().numpy(), use_best_thresh
         )
         ret_cxr = self.computeAUROC(
-            outGT.data.cpu().numpy(), outPRED_cxr.data.cpu().numpy(), "validation_cxr"
+            outGT.data.cpu().numpy(), outPRED_cxr.data.cpu().numpy(), use_best_thresh
         )
         ret_note = self.computeAUROC(
-            outGT.data.cpu().numpy(), outPRED_note.data.cpu().numpy(), "validation_note"
+            outGT.data.cpu().numpy(), outPRED_note.data.cpu().numpy(), use_best_thresh
         )
         ret_joint = self.computeAUROC(
             outGT.data.cpu().numpy(),
             outPRED_joint.data.cpu().numpy(),
-            "validation_joint",
+            use_best_thresh,
         )
 
         self.epochs_stats["auroc val ehr"].append(ret_ehr["auroc_mean"])
@@ -296,7 +296,7 @@ class MMTMTrainer(Trainer):
         print("validating ... ")
         self.epoch = 0
         self.model.eval()
-        ret = self.validate(self.val_dl, full_run=True)
+        ret = self.validate(self.val_dl, full_run=True, use_best_thresh=True)
         self.print_and_write(
             ret["joint"],
             isbest=True,
@@ -328,7 +328,7 @@ class MMTMTrainer(Trainer):
             filename="results_val_note.txt",
         )
         self.model.eval()
-        ret = self.validate(self.test_dl, full_run=True)
+        ret = self.validate(self.val_dl, full_run=True, use_best_thresh=True)
 
         self.print_and_write(
             ret["joint"],
@@ -360,7 +360,7 @@ class MMTMTrainer(Trainer):
             prefix=f"{self.args.fusion_type} test",
             filename="results_test_note.txt",
         )
-        return
+        return ret
 
     def train(self):
         print(f"running for fusion_type {self.args.fusion_type}")
@@ -390,6 +390,7 @@ class MMTMTrainer(Trainer):
             )
             if self.best_auroc < intrabest:
                 self.best_auroc = intrabest  # ret['auroc_mean']
+                self.best_threshold = ret['joint']['thresholds']
                 self.best_stats = ret
                 self.save_checkpoint()
                 self.print_and_write(
