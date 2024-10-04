@@ -95,7 +95,7 @@ class DAFTTrainer(Trainer):
             x = x.to(self.device)
             y = y.to(self.device)
             img = img.to(self.device)
-            if self.args.task == "in-hospital-mortality":
+            if self.args.task == "in-hospital-mortality" or self.args.task == "readmission":
                 y = y.unsqueeze(1)
             output = self.model(x, seq_lengths, img)
             pred = output["daft_fusion"]
@@ -124,7 +124,7 @@ class DAFTTrainer(Trainer):
                 x = Variable(x.to(self.device), requires_grad=False)
                 y = Variable(y.to(self.device), requires_grad=False)
                 img = img.to(self.device)
-                if self.args.task == "in-hospital-mortality":
+                if self.args.task == "in-hospital-mortality" or self.args.task == "readmission":
                     y = y.unsqueeze(1)
                 output = self.model(x, seq_lengths, img)
                 pred = output["daft_fusion"]

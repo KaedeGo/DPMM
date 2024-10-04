@@ -73,8 +73,9 @@ if __name__ == "__main__":
     parser = args_parser()
     # add more arguments here ...
     args = parser.parse_args()
-    # args.ehr_data_dir = MIMIC3_DATA_DIR
-    # args.normalizer_state = MIMIC3_READM_NORMALIZER_PATH if args.task == "readmission" else MIMIC3_IHM_NORMALIZER_PATH
+    args.ehr_data_dir = MIMIC3_DATA_DIR
+    args.normalizer_state = MIMIC3_READM_NORMALIZER_PATH if args.task == "readmission" else MIMIC3_IHM_NORMALIZER_PATH
+    args.data_pairs = "paired_ehr_note"
     print(args)
     # create a directory to save the results
     path = Path(args.save_dir)

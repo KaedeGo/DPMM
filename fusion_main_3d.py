@@ -9,9 +9,9 @@ from trainers.triple.daft_trainer import DAFTTrainer
 from trainers.triple.drfuse_trainer import DrFuseTrainer
 from trainers.triple.copula_trainer import CopulaTrainer
 from ehr_utils.preprocessing import Discretizer, Normalizer
-from datasets_mf.ehr_dataset import get_datasets
-from datasets_mf.cxr_note_dataset import get_cxr_note_datasets
-from datasets_mf.fusion_3d import load_cxr_note_ehr
+from dataset_mimic4.ehr_dataset import get_datasets
+from dataset_mimic4.cxr_note_dataset import get_cxr_note_datasets
+from dataset_mimic4.fusion_3d import load_cxr_note_ehr
 from pathlib import Path
 from paths import *
 import torch
@@ -73,12 +73,12 @@ if __name__ == "__main__":
     parser = args_parser()
     # add more arguments here ...
     args = parser.parse_args()
-    # args.ehr_data_dir = MIMIC4_DATA_DIR
-    # args.cxr_data_dir = CXR_DATA_DIR
-    # args.normalizer_state = MIMIC4_READM_NORMALIZER_PATH if args.task == "readmission" else MIMIC4_IHM_NORMALIZER_PATH
+    args.ehr_data_dir = MIMIC4_DATA_DIR
+    args.cxr_data_dir = CXR_DATA_DIR
+    args.normalizer_state = MIMIC4_READM_NORMALIZER_PATH if args.task == "readmission" else MIMIC4_IHM_NORMALIZER_PATH
     args.data_pairs = "paired_ehr_cxr"
-    if args.missing_token is not None:
-        from trainers.fusion_tokens_trainer import FusionTokensTrainer as FusionTrainer
+    # if args.missing_token is not None:
+    #     from trainers.fusion_tokens_trainer import FusionTokensTrainer as FusionTrainer
 
     path = Path(args.save_dir)
     path.mkdir(parents=True, exist_ok=True)

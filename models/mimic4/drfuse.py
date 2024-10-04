@@ -32,12 +32,11 @@ class DrFuseModel(nn.Module):
         )
 
         resnet = resnet50()
-        # should use all stage0 of resnet50
         self.cxr_model_feat = nn.Sequential(
             resnet.conv1,
             resnet.bn1,
-            resnet.relu,  # missing in drfuse
-            resnet.maxpool,  # missing in drfuse
+            resnet.relu,
+            resnet.maxpool,
         )
 
         resnet = resnet50()
@@ -46,9 +45,10 @@ class DrFuseModel(nn.Module):
             resnet.layer2,
             resnet.layer3,
             resnet.layer4,
-            resnet.avgpool,  # missing in drfuse
+            resnet.avgpool,
+            nn.Flatten(),
         )
-        self.cxr_model_shared_fc = nn.Linear(
+        self.cxr_model_shared.fc = nn.Linear(
             in_features=resnet.fc.in_features, out_features=hidden_size
         )
 
@@ -58,9 +58,10 @@ class DrFuseModel(nn.Module):
             resnet.layer2,
             resnet.layer3,
             resnet.layer4,
-            resnet.avgpool,  # missing in drfuse
+            resnet.avgpool,
+            nn.Flatten(),
         )
-        self.cxr_model_spec_fc = nn.Linear(
+        self.cxr_model_spec.fc = nn.Linear(
             in_features=resnet.fc.in_features, out_features=hidden_size
         )
 
@@ -95,17 +96,8 @@ class DrFuseModel(nn.Module):
             x, seq_lengths
         )  # batch_size x hidden_size(256)
         feat_cxr = self.cxr_model_feat(img)
-        feat_cxr_shared = self.cxr_model_shared(feat_cxr)  # batch_size x 64 x 56 x 56
+        feat_cxr_shared = self.cxr_model_shared(feat_cxr)  # batch_size x hidden_size(256)
         feat_cxr_distinct = self.cxr_model_spec(feat_cxr)
-        # fix the bug in drfuse
-        feat_cxr_shared = feat_cxr_shared.view(feat_cxr_shared.size(0), -1)
-        feat_cxr_distinct = feat_cxr_distinct.view(feat_cxr_distinct.size(0), -1)
-        feat_cxr_shared = self.cxr_model_shared_fc(
-            feat_cxr_shared
-        )  # batch_size x hidden_size(256)
-        feat_cxr_distinct = self.cxr_model_spec_fc(
-            feat_cxr_distinct
-        )  # batch_size x hidden_size(256)
 
         # get shared feature
         pred_cxr = self.cxr_model_linear(feat_cxr_distinct).sigmoid()

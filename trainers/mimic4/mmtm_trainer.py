@@ -141,7 +141,7 @@ class MMTMTrainer(Trainer):
             x = x.to(self.device)
             y = y.to(self.device)
             img = img.to(self.device)
-            if self.args.task == "in-hospital-mortality":
+            if self.args.task == "in-hospital-mortality" or self.args.task == "readmission":
                 y = y.unsqueeze(1)
 
             output = self.model(x, seq_lengths, img)
