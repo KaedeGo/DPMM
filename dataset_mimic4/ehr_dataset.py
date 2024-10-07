@@ -133,7 +133,7 @@ def get_data_loader(discretizer, normalizer, dataset_dir, batch_size):
         num_workers=16,
     )
 
-    return train_dl, val_dl
+    return train_dl, val_dl, test_ds
 
 
 def my_collate(batch):

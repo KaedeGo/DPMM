@@ -75,7 +75,8 @@ if __name__ == "__main__":
     args = parser.parse_args()
     args.ehr_data_dir = MIMIC4_DATA_DIR
     args.cxr_data_dir = CXR_DATA_DIR
-    args.normalizer_state = MIMIC4_READM_NORMALIZER_PATH if args.task == "readmission" else MIMIC4_IHM_NORMALIZER_PATH
+    args.task = 'in_hospital_mortality'
+    args.normalizer_state = MIMIC4_NORMALIZER_PATH
     args.data_pairs = "paired_ehr_cxr"
     # if args.missing_token is not None:
     #     from trainers.fusion_tokens_trainer import FusionTokensTrainer as FusionTrainer

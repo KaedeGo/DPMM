@@ -1,8 +1,5 @@
 from __future__ import absolute_import
 from __future__ import print_function
-
-import sys
-sys.path.append('/home/fwu/Documents/myProjects/MedFuse/mimic4extract')
 from mimic3benchmark.readers import InHospitalMortalityReader
 from mimic3benchmark.readers import DecompensationReader
 from mimic3benchmark.readers import LengthOfStayReader
@@ -19,7 +16,7 @@ def main():
                                                  'means and standard deviations of columns of the output of a '
                                                  'discretizer, which are later used to standardize the input of '
                                                  'neural models.')
-    parser.add_argument('--task', type=str, default='readm',
+    parser.add_argument('--task', type=str, default='ihm',
                         choices=['ihm', 'decomp', 'los', 'pheno', 'readm', 'multi'])
     parser.add_argument('--timestep', type=float, default=2.0,
                         help="Rate of the re-sampling to discretize time-series.")
@@ -37,7 +34,7 @@ def main():
                         'standard deviations. Set -1 to use all training samples.')
     parser.add_argument('--output_dir', type=str, help='Directory where the output file will be saved.',
                         default='.')
-    parser.add_argument('--data', type=str, default='/home/fwu/Documents/myProjects/MedFuse/mimic4extract/data/readmission', help='Path to the task data.')
+    parser.add_argument('--data', type=str, default='/data_mimic4/readmission', help='Path to the task data.')
     parser.set_defaults(store_masks=True)
 
     args = parser.parse_args()
@@ -47,7 +44,7 @@ def main():
     reader = None
     dataset_dir = os.path.join(args.data, 'train')
     if args.task == 'ihm' or args.task == 'readm':
-        reader = InHospitalMortalityReader(dataset_dir=dataset_dir, period_length=48.0)
+        reader = InHospitalMortalityReader(dataset_dir=dataset_dir, listfile=os.path.join(args.data, 'train_listfile.csv'), period_length=48.0)
     if args.task == 'decomp':
         reader = DecompensationReader(dataset_dir=dataset_dir)
     if args.task == 'los':
@@ -59,9 +56,9 @@ def main():
 
     # create the discretizer
     discretizer = Discretizer(timestep=args.timestep,
-                              store_masks=args.store_masks,
-                              impute_strategy=args.impute_strategy,
-                              start_time=args.start_time)
+                            store_masks=args.store_masks,
+                            impute_strategy=args.impute_strategy,
+                            start_time=args.start_time)
     discretizer_header = reader.read_example(0)['header']
     continuous_channels = [i for (i, x) in enumerate(discretizer_header) if x.find("->") == -1]
 
