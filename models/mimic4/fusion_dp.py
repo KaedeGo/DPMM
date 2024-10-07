@@ -32,7 +32,7 @@ class DP_Fusion(nn.Module):
 
         self.align_loss = CosineLoss()
         self.kl_loss = KLDivLoss()
-        self.copula_loss = DirichletProcessLoss(K=args.K * 2, rho_scale=args.rho_scale, family=args.copula_family)
+        self.copula_loss = DirichletProcessLoss(K=args.K * 2, rho_scale=args.rho_scale)
 
         self.lstm_fused_cls =  nn.Sequential(
             nn.Linear(lstm_out, target_classes),
