@@ -301,7 +301,11 @@ class CopulaTrainer(Trainer):
         for self.epoch in range(self.start_epoch, self.args.epochs):
             self.model.eval()
             ret = self.validate(self.val_dl)
+            # or not use_best_thresh in quich test
+            if not self.best_threshold:
+                self.best_threshold = ret["thresholds"]
             self.quick_test(self.test_dl)
+
             self.save_checkpoint(prefix="last")
 
             if self.best_auroc < ret["auroc_mean"]:

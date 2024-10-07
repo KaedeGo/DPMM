@@ -68,7 +68,7 @@ class DirichletProcessTrainer(Trainer):
     def train_epoch(self):
         print(f'starting train epoch {self.epoch}')
         epoch_loss = 0
-        epoch_loss_copula = 0
+        epoch_loss_dp = 0
 
         outGT = torch.FloatTensor().to(self.device)
         outPRED = torch.FloatTensor().to(self.device)
@@ -89,7 +89,7 @@ class DirichletProcessTrainer(Trainer):
             
             epoch_loss += loss.item()
             loss = loss + self.args.copula * output['copula_loss']
-            epoch_loss_copula += self.args.copula * output['copula_loss'].item()
+            epoch_loss_dp += self.args.copula * output['copula_loss'].item()
 
             self.optimizer.zero_grad()
             loss.backward()
@@ -99,16 +99,16 @@ class DirichletProcessTrainer(Trainer):
 
             if i % 100 == 9:
                 eta = self.get_eta(self.epoch, i)
-                print(f" epoch [{self.epoch:04d} / {self.args.epochs:04d}] [{i:04}/{steps}] eta: {eta:<20}  lr: \t{self.optimizer.param_groups[0]['lr']:0.4E} \tloss: {epoch_loss/i:0.5f}, loss copula: {epoch_loss_copula/i:0.4f}")
+                print(f" epoch [{self.epoch:04d} / {self.args.epochs:04d}] [{i:04}/{steps}] eta: {eta:<20}  lr: \t{self.optimizer.param_groups[0]['lr']:0.4E} \tloss: {epoch_loss/i:0.5f}, loss copula: {epoch_loss_dp/i:0.4f}")
 
         ret = self.computeAUROC(outGT.data.cpu().numpy(), outPRED.data.cpu().numpy(), use_best_thresh=True)
         self.epochs_stats['loss train'].append(epoch_loss/i)
-        self.epochs_stats['loss copula train'].append(epoch_loss_copula/i)
+        self.epochs_stats['loss copula train'].append(epoch_loss_dp/i)
         if wandb.run is not None:
             wandb.log(
                 {
                     "loss": epoch_loss / i,
-                    "loss_copula": epoch_loss_copula / i,
+                    "loss_copula": epoch_loss_dp / i,
                     "lr": self.optimizer.param_groups[0]['lr'],
                     "train_auroc": ret["auroc_mean"],
                     "trainauprc": ret["auprc_mean"],
@@ -249,6 +249,9 @@ class DirichletProcessTrainer(Trainer):
         for self.epoch in range(self.start_epoch, self.args.epochs):
             self.model.eval()
             ret = self.validate(self.val_dl)
+            # or not use_best_thresh in quich test
+            if not self.best_threshold:
+                self.best_threshold = ret["thresholds"]
             self.quick_test(self.test_dl)
             self.save_checkpoint(prefix='last')
 

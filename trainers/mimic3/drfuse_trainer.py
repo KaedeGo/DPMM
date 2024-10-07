@@ -220,6 +220,7 @@ class DrFuseTrainer(Trainer):
 
             if self.best_auroc < ret["auroc_mean"]:
                 self.best_auroc = ret["auroc_mean"]
+                self.best_threshold = ret['thresholds']
                 self.best_stats = ret
                 self.save_checkpoint(prefix="best")
                 self.print_and_write(ret, isbest=True)
