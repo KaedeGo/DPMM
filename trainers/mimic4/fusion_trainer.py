@@ -57,8 +57,6 @@ class FusionTrainer(Trainer):
             "loss train": [],
             "loss val": [],
             "auroc val": [],
-            "loss copula train": [],
-            "loss copula val": [],
             "loss align train": [],
             "loss align val": [],
         }

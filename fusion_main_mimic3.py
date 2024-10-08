@@ -75,8 +75,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
     args.ehr_data_dir = MIMIC3_DATA_DIR
     args.normalizer_state = MIMIC3_NORMALIZER_PATH
-    args.data_pairs = "paired_ehr_note"
-    print(args)
+    # args.data_pairs = "paired_ehr_note"
     # create a directory to save the results
     path = Path(args.save_dir)
     path.mkdir(parents=True, exist_ok=True)
