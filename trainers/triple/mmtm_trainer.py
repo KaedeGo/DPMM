@@ -78,9 +78,9 @@ class MMTMTrainer(Trainer):
         self.optimizer_joint = optim.Adam(
             self.model.parameters(), args.lr, betas=(0.9, self.args.beta_1)
         )
-        self.optimizer_early = optim.Adam(
-            self.model.joint_cls.parameters(), args.lr, betas=(0.9, self.args.beta_1)
-        )
+        # self.optimizer_early = optim.Adam(
+        #     self.model.joint_cls.parameters(), args.lr, betas=(0.9, self.args.beta_1)
+        # )
 
         self.load_state()
         print(self.optimizer_visual)
