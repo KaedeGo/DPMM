@@ -1,4 +1,3 @@
-import math
 import torch
 import numpy as np
 from torch import nn
@@ -110,6 +109,10 @@ class DrFuseTrainer(Trainer):
         loss_pred_shared = self._compute_masked_pred_loss(
             model_output["pred_shared"], y_gt, ehr_mask
         )
+        # if mode == "train":
+        #     print(
+        #         f"loss_pred_final: {loss_pred_final.item():.4f}, loss_pred_ehr: {loss_pred_ehr.item():.4f}, loss_pred_cxr: {loss_pred_cxr.item():.4f}, loss_pred_shared: {loss_pred_shared.item():.4f}"
+        #     )
 
         return loss_pred_final, loss_pred_ehr, loss_pred_cxr, loss_pred_shared
 
@@ -178,14 +181,13 @@ class DrFuseTrainer(Trainer):
 
         loss_total = loss_total + self.args.lambda_attn_aux * loss_attn_ranking
 
-        return loss_total
+        # if mode == "train":
+        #     print(f"loss_prediction: {loss_prediction.item():.4f}")
+        #     print(f"loss_disentanglement: {loss_disentanglement.item():.4f}")
+        #     print(f"loss_attn_ranking: {loss_attn_ranking.item():.4f}")
+        #     print(f"loss_total: {loss_total.item():.4f}")
 
-    def _get_alignment_lambda(self):
-        if self.args.adaptive_adc_lambda:
-            lmbda = 2 / (1 + math.exp(-self.args.gamma * self.epoch)) - 1
-        else:
-            lmbda = 1
-        return lmbda
+        return loss_total
 
     def eval(self):
         print("validating ... ")
@@ -237,8 +239,8 @@ class DrFuseTrainer(Trainer):
     def train_epoch(self):
         print(f"starting train epoch {self.epoch}")
         epoch_loss = 0
-        outGT = torch.FloatTensor().to(self.device)
-        outPRED = torch.FloatTensor().to(self.device)
+        # outGT = torch.FloatTensor().to(self.device)
+        # outPRED = torch.FloatTensor().to(self.device)
         steps = len(self.train_dl)
         for i, (x, img, y_ehr, y_cxr, seq_lengths, pairs) in enumerate(self.train_dl):
             y = self.get_gt(y_ehr, y_cxr)
@@ -247,31 +249,21 @@ class DrFuseTrainer(Trainer):
             y = y.to(self.device)
             img = img.to(self.device)
             pairs = torch.FloatTensor(pairs).to(self.device)
+            if 'paired' in self.args.data_pairs and self.args.aug_missing_ratio > 0:
+                perm = torch.randperm(pairs.shape[0])
+                idx = perm[:int(self.args.aug_missing_ratio * pairs.shape[0])]
+                pairs[idx] = 0
             if (
                 self.args.task == "in-hospital-mortality"
                 or self.args.task == "readmission"
             ):
                 y = y.unsqueeze(1)
-            out = self.model(x, img, seq_lengths, pairs, self._get_alignment_lambda())
+            out = self.model(x, img, seq_lengths, pairs, 0)
             loss = self._compute_and_log_loss(out, y_gt=y, pairs=pairs)
-
             epoch_loss += loss.item()
             self.optimizer.zero_grad()
             loss.backward()
             self.optimizer.step()
-
-            if self.args.attn_fusion == "avg":
-                perd_final = (
-                    out["pred_ehr"] + out["pred_cxr"] + out["pred_shared"]
-                ) / 3
-                pred_final = (1 - pairs.unsqueeze(1)) * (
-                    out["pred_ehr"] + out["pred_shared"]
-                ) / 2 + pairs.unsqueeze(1) * perd_final
-            else:
-                pred_final = out["pred_final"]
-
-            outPRED = torch.cat((outPRED, pred_final), 0)
-            outGT = torch.cat((outGT, y), 0)
 
             if i % 100 == 9:
                 eta = self.get_eta(self.epoch, i)
@@ -305,18 +297,9 @@ class DrFuseTrainer(Trainer):
                 ):
                     y = y.unsqueeze(1)
                 out = self.model(
-                    x, img, seq_lengths, pairs, self._get_alignment_lambda()
+                    x, img, seq_lengths, pairs, 0
                 )
-                loss_ = self._compute_and_log_loss(out, y_gt=y, pairs=pairs, mode="val")
-                if self.args.attn_fusion == "avg":
-                    perd_final = (
-                        out["pred_ehr"] + out["pred_cxr"] + out["pred_shared"]
-                    ) / 3
-                    pred_final = (1 - pairs.unsqueeze(1)) * (
-                        out["pred_ehr"] + out["pred_shared"]
-                    ) / 2 + pairs.unsqueeze(1) * perd_final
-                else:
-                    pred_final = out["pred_final"]
+                pred_final = out["pred_final"]
                 loss = self._compute_masked_pred_loss(
                     pred_final, y, torch.ones_like(y[:, 0])
                 )

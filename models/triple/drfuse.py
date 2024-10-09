@@ -203,4 +203,32 @@ class DrFuseModel(nn.Module):
             "attn_weights": attn_weights,
         }
 
+        assert not torch.isnan(pred_final).any()
+        assert not torch.isnan(pred_shared).any()
+        assert not torch.isnan(pred_ehr).any()
+        assert not torch.isnan(pred_cxr).any()
+        assert not torch.isnan(pred_note).any()
+        assert not torch.isnan(attn_weights).any()
+        assert not torch.isnan(feat_final).any()
+        assert not torch.isnan(feat_ehr_shared).any()
+        assert not torch.isnan(feat_cxr_shared).any()
+        assert not torch.isnan(feat_note_shared).any()
+        assert not torch.isnan(feat_ehr_distinct).any()
+        assert not torch.isnan(feat_cxr_distinct).any()
+        assert not torch.isnan(feat_note_distinct).any()
+
+        assert not torch.isinf(pred_final).any()
+        assert not torch.isinf(pred_shared).any()
+        assert not torch.isinf(pred_ehr).any()
+        assert not torch.isinf(pred_cxr).any()
+        assert not torch.isinf(pred_note).any()
+        assert not torch.isinf(attn_weights).any()
+        assert not torch.isinf(feat_final).any()
+        assert not torch.isinf(feat_ehr_shared).any()
+        assert not torch.isinf(feat_cxr_shared).any()
+        assert not torch.isinf(feat_note_shared).any()
+        assert not torch.isinf(feat_ehr_distinct).any()
+        assert not torch.isinf(feat_cxr_distinct).any()
+        assert not torch.isinf(feat_note_distinct).any()
+
         return outputs

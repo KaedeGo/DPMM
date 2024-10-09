@@ -1,16 +1,17 @@
 CUDA_VISIBLE_DEVICES=3 CUDA_LAUNCH_BLOCKING=1 python fusion_main_mimic3.py \
 --dim 256 --dropout 0.3 --layers 2 \
---lr 9.382e-05 \
+--lr 1e-04 \
 --vision_backbone resnet34 \
 --copula 0 \
+--align 0 \
 --mode train \
 --epochs 100 --batch_size 16 \
 --vision_num_classes 1 --num_classes 1 \
---data_pairs paired_ehr_note \
+--data_pairs paired_ehr \
 --data_ratio 1.0 \
 --task in-hospital-mortality \
 --labels_set mortality \
---fusion_type lstm \
---save_dir checkpoints/mortality/mimic3/paired/medFuse
+--fusion_type uni_ehr \
+--save_dir checkpoints/mortality/mimic3/paired/ehr_only
 
-# nohup sh scripts/mortality/mimic3/paired/medFuse.sh > logs/ihm_mimic3/paired/medFuse.log 2>&1 &
+# nohup sh scripts/mortality/mimic3/paired/ehr_only.sh > logs/ihm_mimic3/paired/ehr_only.log 2>&1 &

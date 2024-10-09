@@ -75,7 +75,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
     args.ehr_data_dir = MIMIC4_DATA_DIR
     args.cxr_data_dir = CXR_DATA_DIR
-    args.task = 'in-hospital-mortality'
+    # args.task = 'in-hospital-mortality'
     args.normalizer_state = MIMIC4_NORMALIZER_PATH
     args.data_pairs = "paired_ehr_cxr"
     # if args.missing_token is not None:
