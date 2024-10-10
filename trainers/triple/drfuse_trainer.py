@@ -364,7 +364,7 @@ class DrFuseTrainer(Trainer):
             epoch_loss += loss.item()
             self.optimizer.zero_grad()
             loss.backward()
-            torch.nn.utils.clip_grad_norm_(self.model.parameters(), 1.0)
+            torch.nn.utils.clip_grad_norm_(self.model.parameters(), 0.2)
             self.optimizer.step()
 
             # pred_final = out["pred_final"]
