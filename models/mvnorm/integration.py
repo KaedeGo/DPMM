@@ -1,6 +1,7 @@
 from numpy.core.numeric import full_like, zeros_like
 from scipy.stats import mvn
-from numpy import array, int32,Inf
+from numpy import array, int32
+import numpy as np
 from joblib import Parallel, delayed
 
 
@@ -44,7 +45,7 @@ def hyperrectangle_integration(mean,covariance,lower=None,upper=None,info=False)
 
     N = prod(batch_shape)
     m = mean.reshape(N,d)
-    l = full_like(m,-Inf) if lower is None else lower.reshape(N,d)
+    l = full_like(m,-np.inf) if lower is None else lower.reshape(N,d)
     u = zeros_like(m) if upper is None else upper.reshape(N,d)
     c = covariance.reshape(N,d,d)
 
