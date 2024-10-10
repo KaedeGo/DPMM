@@ -328,7 +328,7 @@ class MMTMTrainer(Trainer):
             filename="results_val_note.txt",
         )
         self.model.eval()
-        ret = self.validate(self.val_dl, full_run=True, use_best_thresh=True)
+        ret = self.validate(self.test_dl, full_run=True, use_best_thresh=True)
 
         self.print_and_write(
             ret["joint"],
