@@ -1,7 +1,7 @@
 CUDA_VISIBLE_DEVICES=0 CUDA_LAUNCH_BLOCKING=1 python fusion_main_3d.py \
 --dim 256 --dropout 0.3 --layers 2 \
---mode train \
---epochs 100 --batch_size 8 \
+--mode train --lr 1e-5\
+--epochs 100 --batch_size 16 \
 --vision_num_classes 1 --num_classes 1 \
 --data_pairs paired_ehr_cxr \
 --task readmission \
