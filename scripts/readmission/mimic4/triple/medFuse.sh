@@ -1,4 +1,4 @@
-CUDA_VISIBLE_DEVICES=5 CUDA_LAUNCH_BLOCKING=1 python fusion_main_3d.py \
+CUDA_VISIBLE_DEVICES=4 CUDA_LAUNCH_BLOCKING=1 python fusion_main_3d.py \
 --dim 256 --dropout 0.3 --layers 2 \
 --lr 9.382e-05 \
 --vision_backbone resnet34 \

@@ -1,4 +1,4 @@
-CUDA_VISIBLE_DEVICES=0 CUDA_LAUNCH_BLOCKING=1 python fusion_main_mimic3.py \
+CUDA_VISIBLE_DEVICES=1 CUDA_LAUNCH_BLOCKING=1 python fusion_main_mimic3.py \
 --dim 256 --dropout 0.3 --layers 2 \
 --vision_backbone resnet34 \
 --mode train \

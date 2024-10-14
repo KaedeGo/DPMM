@@ -60,9 +60,9 @@ class MMTMTrainer(Trainer):
         self.optimizer_joint = optim.Adam(
             self.model.parameters(), args.lr, betas=(0.9, self.args.beta_1)
         )
-        self.optimizer_early = optim.Adam(
-            self.model.joint_cls.parameters(), args.lr, betas=(0.9, self.args.beta_1)
-        )
+        # self.optimizer_early = optim.Adam(
+        #     self.model.joint_cls.parameters(), args.lr, betas=(0.9, self.args.beta_1)
+        # )
 
         self.load_state()
         print(self.optimizer_note)
@@ -270,7 +270,7 @@ class MMTMTrainer(Trainer):
             filename="results_val_ehr.txt",
         )
         self.model.eval()
-        ret = self.validate(self.val_dl, full_run=True, use_best_thresh=True)
+        ret = self.validate(self.test_dl, full_run=True, use_best_thresh=True)
 
         self.print_and_write(
             ret["joint"],

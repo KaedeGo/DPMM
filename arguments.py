@@ -81,7 +81,7 @@ def args_parser():
     parser.add_argument('--lambda_pred_cxr', type=float, default=1)
     parser.add_argument('--lambda_pred_note', type=float, default=1)
     parser.add_argument('--lambda_pred_shared', type=float, default=1)
-    parser.add_argument('--aug_missing_ratio', type=float, default=0)
+    parser.add_argument('--aug_missing_ratio', type=float, default=0.3)
     parser.add_argument('--lambda_attn_aux', type=float, default=1)
     parser.add_argument('--ehr_n_layers', type=int, default=1)
     parser.add_argument('--ehr_n_head', type=int, default=4)

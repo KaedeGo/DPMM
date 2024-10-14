@@ -50,7 +50,7 @@ class MMTMTrainer(Trainer):
         self.optimizer_visual = optim.Adam(
             [
                 {"params": self.model.cxr_model.parameters()},
-                {"params": self.model.mmtm0.parameters()},
+                # {"params": self.model.mmtm0.parameters()},
             ],
             args.lr,
             betas=(0.9, self.args.beta_1),
@@ -58,7 +58,7 @@ class MMTMTrainer(Trainer):
         self.optimizer_ehr = optim.Adam(
             [
                 {"params": self.model.cxr_model.parameters()},
-                {"params": self.model.mmtm0.parameters()},
+                # {"params": self.model.mmtm0.parameters()},
             ],
             args.lr,
             betas=(0.9, self.args.beta_1),
@@ -66,9 +66,9 @@ class MMTMTrainer(Trainer):
         self.optimizer_joint = optim.Adam(
             self.model.parameters(), args.lr, betas=(0.9, self.args.beta_1)
         )
-        self.optimizer_early = optim.Adam(
-            self.model.joint_cls.parameters(), args.lr, betas=(0.9, self.args.beta_1)
-        )
+        # self.optimizer_early = optim.Adam(
+        #     self.model.joint_cls.parameters(), args.lr, betas=(0.9, self.args.beta_1)
+        # )
 
         self.load_state()
         print(self.optimizer_visual)
@@ -132,10 +132,10 @@ class MMTMTrainer(Trainer):
         ehr_loss = 0
         joint_loss = 0
         align_loss = 0
-        outGT = torch.FloatTensor().to(self.device)
-        outPRED = torch.FloatTensor().to(self.device)
+        # outGT = torch.FloatTensor().to(self.device)
+        # outPRED = torch.FloatTensor().to(self.device)
         steps = len(self.train_dl)
-        for i, (x, img, y_ehr, y_cxr, seq_lengths, pairs) in enumerate(self.train_dl):
+        for i, (x, img, y_ehr, y_cxr, seq_lengths, _) in enumerate(self.train_dl):
             y = self.get_gt(y_ehr, y_cxr)
             x = torch.from_numpy(x).float()
             x = x.to(self.device)
@@ -270,7 +270,7 @@ class MMTMTrainer(Trainer):
             filename="results_val_ehr.txt",
         )
         self.model.eval()
-        ret = self.validate(self.val_dl, full_run=True, use_best_thresh=True)
+        ret = self.validate(self.test_dl, full_run=True, use_best_thresh=True)
 
         self.print_and_write(
             ret["joint"],

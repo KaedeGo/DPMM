@@ -1,4 +1,4 @@
-CUDA_VISIBLE_DEVICES=2 CUDA_LAUNCH_BLOCKING=1 python fusion_main_mimic3.py \
+CUDA_VISIBLE_DEVICES=3 CUDA_LAUNCH_BLOCKING=1 python fusion_main_mimic3.py \
 --dim 256 --dropout 0 --layers 2 \
 --mode train \
 --lr 0.0001 \
@@ -10,7 +10,7 @@ CUDA_VISIBLE_DEVICES=2 CUDA_LAUNCH_BLOCKING=1 python fusion_main_mimic3.py \
 --labels_set readm \
 --fusion_type copula \
 --copula_fuse_type lstm \
---copula 0.00001 \
+--copula 0.000001 \
 --copula_family Frank \
 --save_dir checkpoints/readm/mimic3/paired/copula
 # nohup sh scripts/readmission/mimic3/paired/copula.sh > logs/readm_mimic3/paired/copula.log 2>&1 &
