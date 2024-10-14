@@ -6,16 +6,17 @@ import argparse
 import os
 import imp
 import re
-from trainers.fusion_trainer import FusionTrainer
-from trainers.mmtm_trainer import MMTMTrainer
-from trainers.daft_trainer import DAFTTrainer
-from trainers.drfuse_trainer import DrFuseTrainer
-from trainers.copula_trainer import CopulaTrainer
+from trainers.mimic4.fusion_trainer import FusionTrainer
+from trainers.mimic4.mmtm_trainer import MMTMTrainer
+from trainers.mimic4.daft_trainer import DAFTTrainer
+from trainers.mimic4.drfuse_trainer import DrFuseTrainer
+from trainers.mimic4.copula_trainer import CopulaTrainer
+from trainers.mimic4.dp_trainer import DirichletProcessTrainer
 
 from ehr_utils.preprocessing import Discretizer, Normalizer
-from datasets_mf.ehr_dataset import get_datasets
-from datasets_mf.cxr_dataset import get_cxr_datasets
-from datasets_mf.fusion import load_cxr_ehr
+from dataset_mimic4.ehr_dataset import get_datasets
+from dataset_mimic4.cxr_dataset import get_cxr_datasets
+from dataset_mimic4.fusion import load_cxr_ehr
 from pathlib import Path
 from paths import *
 import torch
@@ -29,12 +30,17 @@ parser = args_parser()
 args = parser.parse_args()
 print(args)
 
-if args.missing_token is not None:
-    from trainers.fusion_tokens_trainer import FusionTokensTrainer as FusionTrainer
+args.ehr_data_dir = MIMIC4_DATA_DIR
+args.cxr_data_dir = CXR_DATA_DIR
+args.normalizer_state = MIMIC4_NORMALIZER_PATH
+
+# if args.missing_token is not None:
+#     from trainers.fusion_tokens_trainer import FusionTokensTrainer as FusionTrainer
 
 seed = 1002
 torch.manual_seed(seed)
 np.random.seed(seed)
+
 
 def read_timeseries(args):
     path = f'{args.ehr_data_dir}/{args.task}/train/14991576_episode3_timeseries.csv'
@@ -89,14 +95,14 @@ for rho_scale in [-2.5, -3, -4]:
                 # args.dropout = dr
                 args.K = K
                 args.rho_scale = rho_scale
-                args.temperature = temperature
+                args.temperature = 0
 
-                name = f"{dataset_name}_{args.fusion_type}_{pair_type}_{args.labels_set}_{args.copula_family}_rho{rho_scale}_K{K}_temp{args.temperature}"
+                name = f"{dataset_name}_{args.fusion_type}_{pair_type}_{args.labels_set}_rho{rho_scale}_K{K}_temp{args.temperature}"
                 # name = f"{args.fusion_type}_{pair_type}_{args.labels_set}_dr{dr}"
                 # name = f"{args.fusion_type}_{pair_type}_{args.labels_set}_lr{lr}"
-                # name = f"{args.fusion_type}_{pair_type}_{args.labels_set}_{args.copula_family}_temp{args.temperature}"
+                # name = f"{args.fusion_type}_{pair_type}_{args.labels_set}_temp{args.temperature}"
 
-                args.save_dir = f"checkpoints/phenotyping/paired/copula/{name}"
+                args.save_dir = f"checkpoints/phenotyping/paired/dp/{name}"
                 path = Path(args.save_dir)
                 path.mkdir(parents=True, exist_ok=True)
 
@@ -104,11 +110,11 @@ for rho_scale in [-2.5, -3, -4]:
                 mode = "online"
 
                 wandb.init(name=name,
-                           project='MedFuse',
+                           project='DPMMM',
                            notes="",
                            mode=mode,
                            config=config,
-                           tags=["copula", args.copula_family, pair_type]
+                           tags=["dp", pair_type]
                 )
 
                 with open(f"{args.save_dir}/args.txt", 'w') as results_file:
@@ -143,13 +149,20 @@ for rho_scale in [-2.5, -3, -4]:
                         args,
                         test_dl=test_dl
                         )
+                elif args.fusion_type == 'dp':
+                    trainer = DirichletProcessTrainer(
+                        train_dl,
+                        val_dl,
+                        args,
+                        test_dl=test_dl
+                    )
                 else:
                     trainer = FusionTrainer(
                         train_dl,
                         val_dl,
                         args,
                         test_dl=test_dl
-                        )
+                    )
 
                 if args.mode == 'train':
                     print("==> training")

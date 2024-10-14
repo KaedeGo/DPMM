@@ -6,7 +6,7 @@ import torch.nn as nn
 import torch.optim as optim
 from torch.autograd import Variable
 from torch.optim.lr_scheduler import ReduceLROnPlateau
-from models.mimic4.fusion_copula import DP_Fusion
+from models.mimic4.fusion_dp import DP_Fusion
 from models.ehr_models import LSTM
 from models.cxr_models import CXRModels
 from trainers.trainer import Trainer
@@ -48,7 +48,7 @@ class DirichletProcessTrainer(Trainer):
 
         self.best_auroc = 0
         self.best_stats = None
-        self.epochs_stats = {'loss train': [], 'loss val': [], 'auroc val': [], 'auroc test': [], 'loss copula train': [], 'loss copula val': [], 'loss align train': [], 'loss align val': []}
+        self.epochs_stats = {'loss train': [], 'loss val': [], 'auroc val': [], 'auroc test': [], 'loss dp train': [], 'loss dp val': [], 'loss align train': [], 'loss align val': []}
     
     def init_fusion_method(self):
 
@@ -88,8 +88,8 @@ class DirichletProcessTrainer(Trainer):
             loss = self.loss(pred, y) / np.max([np.exp(-self.args.temperature * self.epoch), 0.001])
             
             epoch_loss += loss.item()
-            loss = loss + self.args.copula * output['copula_loss']
-            epoch_loss_dp += self.args.copula * output['copula_loss'].item()
+            loss = loss + self.args.dp * output['dp_loss']
+            epoch_loss_dp += self.args.dp * output['dp_loss'].item()
 
             self.optimizer.zero_grad()
             loss.backward()
@@ -99,21 +99,21 @@ class DirichletProcessTrainer(Trainer):
 
             if i % 100 == 9:
                 eta = self.get_eta(self.epoch, i)
-                print(f" epoch [{self.epoch:04d} / {self.args.epochs:04d}] [{i:04}/{steps}] eta: {eta:<20}  lr: \t{self.optimizer.param_groups[0]['lr']:0.4E} \tloss: {epoch_loss/i:0.5f}, loss copula: {epoch_loss_dp/i:0.4f}")
+                print(f" epoch [{self.epoch:04d} / {self.args.epochs:04d}] [{i:04}/{steps}] eta: {eta:<20}  lr: \t{self.optimizer.param_groups[0]['lr']:0.4E} \tloss: {epoch_loss/i:0.5f}, loss dp: {epoch_loss_dp/i:0.4f}")
 
         ret = self.computeAUROC(outGT.data.cpu().numpy(), outPRED.data.cpu().numpy(), use_best_thresh=True)
         self.epochs_stats['loss train'].append(epoch_loss/i)
-        self.epochs_stats['loss copula train'].append(epoch_loss_dp/i)
+        self.epochs_stats['loss dp train'].append(epoch_loss_dp/i)
         if wandb.run is not None:
             wandb.log(
                 {
                     "loss": epoch_loss / i,
-                    "loss_copula": epoch_loss_dp / i,
+                    "loss_dp": epoch_loss_dp / i,
                     "lr": self.optimizer.param_groups[0]['lr'],
                     "train_auroc": ret["auroc_mean"],
                     "trainauprc": ret["auprc_mean"],
                     "train_f1": ret["f1_mean"],
-                    "theta": self.model.copula_loss.theta.item()
+                    "theta": self.model.dp_loss.theta.item()
                 }
             )
 
@@ -122,7 +122,7 @@ class DirichletProcessTrainer(Trainer):
     def validate(self, dl, use_best_thresh=False):
         print(f'starting val epoch {self.epoch}')
         epoch_loss = 0
-        epoch_loss_copula = 0
+        epoch_loss_dp = 0
         outGT = torch.FloatTensor().to(self.device)
         outPRED = torch.FloatTensor().to(self.device)
 
@@ -142,21 +142,21 @@ class DirichletProcessTrainer(Trainer):
                 pred = output[self.args.fusion_type]
                 loss = self.loss(pred, y)
                 epoch_loss += loss.item()
-                loss += self.args.copula * output['copula_loss']
-                epoch_loss_copula += self.args.copula * output['copula_loss'].item()
+                loss += self.args.dp * output['dp_loss']
+                epoch_loss_dp += self.args.dp * output['dp_loss'].item()
                 outPRED = torch.cat((outPRED, pred), 0)
                 outGT = torch.cat((outGT, y), 0)
         
         self.scheduler.step(epoch_loss/len(self.val_dl))
 
-        print(f"val [{self.epoch:04d} / {self.args.epochs:04d}] validation loss: \t{epoch_loss/i:0.5f}, validation copula loss: {epoch_loss_copula/i:0.5f}")
+        print(f"val [{self.epoch:04d} / {self.args.epochs:04d}] validation loss: \t{epoch_loss/i:0.5f}, validation dp loss: {epoch_loss_dp/i:0.5f}")
         ret = self.computeAUROC(outGT.data.cpu().numpy(), outPRED.data.cpu().numpy(), use_best_thresh)
         np.save(f'{self.args.save_dir}/pred.npy', outPRED.data.cpu().numpy()) 
         np.save(f'{self.args.save_dir}/gt.npy', outGT.data.cpu().numpy()) 
 
         self.epochs_stats['auroc val'].append(ret['auroc_mean'])
         self.epochs_stats['loss val'].append(epoch_loss/i)
-        self.epochs_stats['loss copula val'].append(epoch_loss_copula/i)
+        self.epochs_stats['loss dp val'].append(epoch_loss_dp/i)
 
         if wandb.run is not None:
             wandb.log(

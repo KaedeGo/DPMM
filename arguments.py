@@ -46,7 +46,7 @@ def args_parser():
     parser.add_argument('--rec_dropout', type=float, default=0.0, help="dropout rate for recurrent connections")
 
     # model setting
-    parser.add_argument('--fusion_type', type=str, default='copula', help='train or eval for [fused_ehr, fused_cxr, uni_cxr, uni_ehr, lstm, unified, mmtm, daft, copula, drfuse]')
+    parser.add_argument('--fusion_type', type=str, default='dp', help='train or eval for [fused_ehr, fused_cxr, uni_cxr, uni_ehr, lstm, unified, mmtm, daft, dp, drfuse]')
         # backbone setting
         # vision backbone setting
     parser.add_argument('--layers', default=2, type=int, help='number of lstm stacked modules')
@@ -66,11 +66,11 @@ def args_parser():
     parser.add_argument('--mmtm_ratio', type=float, default=4, help='mmtm ratio hyperparameter')
         # daft setting
     parser.add_argument('--daft_activation', type=str, default='linear', help='daft activation ')
-        # copula setting
-    parser.add_argument('--copula', type=float, default=0.000001, help='copula weight')
-    parser.add_argument('--copula_fuse_type', type=str, default=None, help='copula_fuse_type: lstm, mha')
-    parser.add_argument('--copula_normalize_feats', action="store_true")
-    parser.add_argument('--copula_resample', type=bool, default=True)
+        # dp setting
+    parser.add_argument('--dp', type=float, default=0.000001, help='dp weight')
+    parser.add_argument('--dp_fuse_type', type=str, default=None, help='dp_fuse_type: lstm, mha')
+    parser.add_argument('--dp_normalize_feats', action="store_true")
+    parser.add_argument('--dp_resample', type=bool, default=True)
     parser.add_argument('--replace_w_align', type=str, default=None, help='replace_w_align: kl, cos')
         # drfuse setting   
     parser.add_argument('--lambda_disentangle_shared', type=float, default=1)
@@ -103,7 +103,6 @@ def args_parser():
     # Copula parameters
     parser.add_argument('--K', type=int, default=3)
     parser.add_argument('--rho_scale', type=float, default=-3)
-    parser.add_argument('--copula_family', type=str, default="Gumbel", choices=["Gumbel", "Clayton", "Frank", "Gaussian"])
 
     # Temperature annealing
     parser.add_argument('--temperature', type=float, default=0.0001)

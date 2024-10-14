@@ -497,22 +497,21 @@ class Copula3DLoss(nn.Module):
 
 class DirichletProcessLoss(nn.Module):
 
-    def __init__(self, dim=256, K=3, rho_scale=-4, eta=1):
+    def __init__(self, dim=256, K=3, M=2, rho_scale=-4, eta=1):
         super(DirichletProcessLoss, self).__init__()
         """
         !!! One of the variants !!!
         """
         self.theta = nn.Parameter(torch.ones(1) * 1)
 
-        self.pi = nn.Parameter(torch.ones([K]) / K)
+        self.pi = nn.Parameter(torch.ones([K * M]) / (K * M))
+        self.phi = torch.ones(K * M) / (K * M)
 
         self.eta = eta
-        self.gamma_1 = torch.ones(self.T)
-        self.gamma_2 = torch.ones(self.T) * eta
+        self.gamma_1 = torch.ones(K * M)
+        self.gamma_2 = torch.ones(K * M) * eta
 
         self.eta = eta
-        self.log_phi = torch.ones(self.k) / self.k
-
 
         self.mu_x = nn.Parameter(torch.zeros([K, dim]))
         self.mu_y = nn.Parameter(torch.zeros([K, dim]))
@@ -520,6 +519,8 @@ class DirichletProcessLoss(nn.Module):
         self.log_cov_y = nn.Parameter(torch.ones([K, dim]) * rho_scale)
 
         self.K = K
+        self.M = M
+        self.n_mixture = K * M
 
     def _estimate_log_weights(self):
         digamma_sum = torch.digamma(
@@ -537,20 +538,19 @@ class DirichletProcessLoss(nn.Module):
         ))
         )
 
-    def _update_gamma(self, nk):
-        """Estimate the parameters of the Dirichlet distribution.
+    def _update_gamma(self):
+        phi = self.phi
 
-        Parameters
-        ----------
-        nk : array-like of shape (n_components,)
-        """
+        phi_flipped = torch.flip(phi, dims=[1])
+        cum_sum = torch.cumsum(phi_flipped, dim=1) - phi_flipped
+        cum_sum = torch.flip(cum_sum, dims=[1])
 
-        gamma_2 = self.eta + np.hstack((np.cumsum(nk.detach().cpu().numpy()[::-1])[-2::-1], 0))
-        self.gamma_2 = torch.from_numpy(gamma_2).cuda()
-        self.gamma_1 = 1 + nk
+        self.gamma_1 = 1 + phi.mean(0)
+        self.gamma_2 = self.eta + cum_sum.mean(0)
 
     def forward(self, x, y):
 
+        batch_size = x.shape[0]
         beta = self.sample_beta(batch_size)
         pi = self.mix_weights(beta)[:, :-1]
 
@@ -561,19 +561,54 @@ class DirichletProcessLoss(nn.Module):
         u_log_pdf = [self.mvn_pdf(x, self.mu_x[k], cov_x[k]) for k in range(self.K)]
         v_log_pdf = [self.mvn_pdf(y, self.mu_y[k], cov_y[k]) for k in range(self.K)]
 
-        # TODO Probably we need to develop entropy of multivariate Gaussian
-        loss = torch.stack(u_log_pdf + v_log_pdf, dim=1) + torch.log(pi.clamp(min=1e-15))
-        loss = torch.logsumexp(loss, -1).mean(0)
-
-        self.update_gamma()
+        u_entropy = [self.mvn_entropy(self.mu_x[k], cov_x[k]) for k in range(self.K)]
+        v_entropy = [self.mvn_entropy(self.mu_y[k], cov_y[k]) for k in range(self.K)]
 
         assert not torch.isinf(torch.stack(u_log_pdf, dim=1)).any()
         assert not torch.isinf(torch.stack(v_log_pdf, dim=1)).any()
+
+        loss = torch.stack(u_log_pdf + v_log_pdf, dim=1) + torch.stack(u_entropy + v_entropy, dim=0) + torch.log(pi.clamp(min=1e-15))
+
+        self.phi = torch.softmax(loss, dim=-1).clamp(min=1e-15).detach()
+        self._update_gamma()
+
+        loss = torch.logsumexp(loss, -1).mean(0)
 
         assert loss.dim() == 0
         assert not torch.isnan(loss)
 
         return - loss  #  ELBO = negative of likelihood
+
+    def rsample(self, n_samples=[0]):
+        """
+        Sample (gradient-preserving) from Gaussian mixture
+        Only for y
+        """
+        beta = self.sample_beta(n_samples[0])
+        pi = self.mix_weights(beta)[:, :-1]
+
+        cov_x = torch.log1p(torch.exp(self.log_cov_x)).clamp(min=1e-15)
+        cov_y = torch.log1p(torch.exp(self.log_cov_y)).clamp(min=1e-15)
+
+        # Using reparameterization tricks
+        assert not torch.isnan(self.mu_x).any()
+        assert not torch.isnan(cov_x).any()
+        assert not torch.isnan(pi).any()
+        assert not torch.isnan(self.mu_y).any()
+        assert not torch.isnan(cov_y).any()
+
+        x_samples = [MultivariateNormal(self.mu_x[k], scale_tril=torch.diag(cov_x[k])).rsample(sample_shape=n_samples).T * pi[:, k] for k in range(self.K)]
+        y_samples = [MultivariateNormal(self.mu_y[k], scale_tril=torch.diag(cov_y[k])).rsample(sample_shape=n_samples).T * pi[:, self.K + k] for k in range(self.K)]
+
+        x_samples = torch.stack(x_samples, dim=0).sum(dim=0).T.float()
+        y_samples = torch.stack(y_samples, dim=0).sum(dim=0).T.float()
+        assert not torch.isnan(x_samples).any()
+        assert not torch.isnan(y_samples).any()
+
+        assert not torch.isinf(x_samples).any()
+        assert not torch.isinf(y_samples).any()
+
+        return y_samples
 
     def infer(self, x):
         """
@@ -596,10 +631,35 @@ class DirichletProcessLoss(nn.Module):
         a = self.gamma_1.detach().cpu().numpy()
         b = self.gamma_2.detach().cpu().numpy()
 
-        samples = beta.rvs(a, b, size=(size, self.T))
+        samples = beta.rvs(a, b, size=(size, self.n_mixture))
         samples = torch.from_numpy(samples).cuda()
 
         return samples
+
+    def mvn_pdf(self, x, mu, cov):
+        """
+        PDF of multivariate normal distribution
+        """
+        log_pdf = MultivariateNormal(mu, scale_tril=torch.diag(cov)).log_prob(x)
+
+        return log_pdf
+
+    def mvn_log_pdf(self, x):
+        """
+        PDF of multivariate normal distribution
+        """
+
+        return (-torch.log(torch.sqrt(2 * torch.pi))
+                - torch.log(self.std_dev)
+                - ((x - self.mu) ** 2) / (2 * self.std_dev ** 2)).sum(dim=-1)
+
+    def mvn_entropy(self, mu, cov):
+        """
+        PDF of multivariate normal distribution
+        """
+        log_pdf = MultivariateNormal(mu, scale_tril=torch.diag(cov)).entropy()
+
+        return log_pdf
 
     def mix_weights(self, beta):
         beta1m_cumprod = (1 - beta).cumprod(-1)

@@ -10,6 +10,8 @@ from trainers.mimic3.mmtm_trainer import MMTMTrainer
 from trainers.mimic3.daft_trainer import DAFTTrainer
 from trainers.mimic3.drfuse_trainer import DrFuseTrainer
 from trainers.mimic3.copula_trainer import CopulaTrainer
+from trainers.mimic3.dp_trainer import DirichletProcessTrainer
+
 from ehr_utils.preprocessing import Discretizer, Normalizer
 from dataset_mimic3.ehr_dataset import get_datasets
 from dataset_mimic3.note_dataset import get_note_datasets
@@ -63,6 +65,11 @@ if __name__ == "__main__":
     parser = args_parser()
     # add more arguments here ...
     args = parser.parse_args()
+
+    args.ehr_data_dir = MIMIC3_DATA_DIR
+    args.cxr_data_dir = CXR_DATA_DIR
+    args.normalizer_state = MIMIC3_NORMALIZER_PATH
+
     # args.batch_size = 8
     # args.ehr_data_dir = '/disk1/fwu/myProjects/MedFuse/data_mimic3/'
     # args.data_pairs = "paired_ehr_note"
@@ -105,12 +112,12 @@ if __name__ == "__main__":
                     args.rho_scale = rho_scale
                     args.temperature = temperature
 
-                    name = f"{dataset_name}_{args.fusion_type}_{pair_type}_{args.labels_set}_{args.copula_family}_rho{rho_scale}_K{K}_temp{args.temperature}"
+                    name = f"{dataset_name}_{args.fusion_type}_{pair_type}_{args.labels_set}_rho{rho_scale}_K{K}_temp{args.temperature}"
                     # name = f"{args.fusion_type}_{pair_type}_{args.labels_set}_dr{dr}"
                     # name = f"{args.fusion_type}_{pair_type}_{args.labels_set}_lr{lr}"
-                    # name = f"{args.fusion_type}_{pair_type}_{args.labels_set}_{args.copula_family}_temp{args.temperature}"
+                    # name = f"{args.fusion_type}_{pair_type}_{args.labels_set}_temp{args.temperature}"
 
-                    args.save_dir = f"checkpoints/phenotyping/paired/copula/{name}"
+                    args.save_dir = f"checkpoints/phenotyping/paired/dp/{name}"
                     path = Path(args.save_dir)
                     path.mkdir(parents=True, exist_ok=True)
 
@@ -118,11 +125,11 @@ if __name__ == "__main__":
                     mode = "online"
 
                     wandb.init(name=name,
-                               project='MedFuse',
+                               project='DPMMM',
                                notes="",
                                mode=mode,
                                config=config,
-                               tags=["copula", args.copula_family, pair_type]
+                               tags=["dp", pair_type]
                                )
 
                     with open(f"{args.save_dir}/args.txt", 'w') as results_file:
@@ -151,6 +158,13 @@ if __name__ == "__main__":
                         )
                     elif args.fusion_type == 'copula':
                         trainer = CopulaTrainer(
+                            train_dl,
+                            val_dl,
+                            args,
+                            test_dl=test_dl
+                        )
+                    elif args.fusion_type == 'dp':
+                        trainer = DirichletProcessTrainer(
                             train_dl,
                             val_dl,
                             args,

@@ -32,9 +32,9 @@ class DP_Fusion(nn.Module):
 
         self.align_loss = CosineLoss()
         self.kl_loss = KLDivLoss()
-        self.copula_loss = DirichletProcessLoss(K=args.K * 2, rho_scale=args.rho_scale)
+        self.dp_loss = DirichletProcessLoss(K=args.K, M=2, rho_scale=args.rho_scale)
 
-        self.lstm_fused_cls =  nn.Sequential(
+        self.lstm_fused_cls = nn.Sequential(
             nn.Linear(lstm_out, target_classes),
             nn.Sigmoid()
         )
@@ -51,26 +51,26 @@ class DP_Fusion(nn.Module):
         projected = self.projection(cxr_feats)
 
         # normalize the ehr_feats&cxr_feats
-        if self.args.copula_normalize_feats:
+        if self.args.dp_normalize_feats:
             ehr_feats = F.normalize(ehr_feats, p=2, dim=1)
             projected = F.normalize(projected, p=2, dim=1)
 
-        if self.args.copula_resample:
+        if self.args.dp_resample:
             n_samples = len(projected[list(~np.array(pairs))])
             if n_samples > 0:
-                cxr_samples = self.copula_loss.rsample(n_samples= torch.zeros(n_samples).size())
+                cxr_samples = self.dp_loss.rsample(n_samples= torch.zeros(n_samples).size())
                 projected[list(~np.array(pairs))] = cxr_samples.detach()
         else :
             projected[list(~np.array(pairs))] = 0
 
         if self.args.replace_w_align == "kl":
-            copula_loss = self.kl_loss(ehr_feats, projected)
+            dp_loss = self.kl_loss(ehr_feats, projected)
         elif self.args.replace_w_align == "cos":
-            copula_loss = self.align_loss(ehr_feats, projected)
+            dp_loss = self.align_loss(ehr_feats, projected)
         else:
-            copula_loss = self.copula_loss(ehr_feats, projected)
+            dp_loss = self.dp_loss(ehr_feats, projected)
 
-        if self.args.copula_fuse_type == 'lstm':
+        if self.args.dp_fuse_type == 'lstm':
             if len(ehr_feats.shape) == 1:
                 feats = ehr_feats[None,None,:]
                 feats = torch.cat([feats, projected[:,None,:]], dim=1)
@@ -94,6 +94,6 @@ class DP_Fusion(nn.Module):
         return {
             'ehr_feats': ehr_feats,
             'cxr_feats': projected,
-            'copula': fused_preds,
-            'copula_loss': copula_loss
+            'dp': fused_preds,
+            'dp_loss': dp_loss
         }
