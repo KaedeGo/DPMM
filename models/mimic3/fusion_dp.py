@@ -2,6 +2,7 @@ import torch.nn as nn
 import torch
 import numpy as np
 from models.loss import CosineLoss, KLDivLoss, DirichletProcessLoss
+from models.multimodal_fusion import MultimodalFusion, CrossAttentionFusion
 import torch.nn.functional as F
 
 
@@ -35,6 +36,13 @@ class DP_Fusion(nn.Module):
 
         self.lstm_fusion_layer = nn.LSTM(
             lstm_in, lstm_out, batch_first=True, dropout=0.0
+        )
+
+        self.cross_attention_fusion = CrossAttentionFusion(in_ts_size=lstm_in, in_cxr_size=lstm_in)
+
+        self.mha_fused_cls = nn.Sequential(
+            nn.Linear(lstm_out, target_classes),
+            nn.Sigmoid()
         )
 
     def forward(self, x, seq_lengths=None, token=None, mask=None, pairs=None):
@@ -82,6 +90,11 @@ class DP_Fusion(nn.Module):
             out = ht.squeeze(0)
 
             fused_preds = self.lstm_fused_cls(out)
+        elif self.args.dp_fuse_type == 'mha':
+            if len(ehr_feats.shape) == 1:
+                feats = ehr_feats[None,:]
+            fusion_feat = self.cross_attention_fusion(ehr_feats, projected)
+            fused_preds = self.mha_fused_cls(fusion_feat)
         else:
             feats = torch.cat([ehr_feats, projected], dim=1)
             fused_preds = self.fused_cls(feats)

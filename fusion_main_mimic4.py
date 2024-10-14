@@ -8,6 +8,7 @@ from trainers.mimic4.mmtm_trainer import MMTMTrainer
 from trainers.mimic4.daft_trainer import DAFTTrainer
 from trainers.mimic4.drfuse_trainer import DrFuseTrainer
 from trainers.mimic4.copula_trainer import CopulaTrainer
+from trainers.mimic4.dp_trainer import DirichletProcessTrainer
 from ehr_utils.preprocessing import Discretizer, Normalizer
 from dataset_mimic4.ehr_dataset import get_datasets
 from dataset_mimic4.cxr_dataset import get_cxr_datasets
@@ -124,6 +125,8 @@ if __name__ == "__main__":
             trainer = DrFuseTrainer(train_dl, val_dl, args, test_dl=test_dl)
         elif args.fusion_type == "copula":
             trainer = CopulaTrainer(train_dl, val_dl, args, test_dl=test_dl)
+        elif args.fusion_type == "dp":
+            trainer = DirichletProcessTrainer(train_dl, val_dl, args, test_dl=test_dl)
         else:
             trainer = FusionTrainer(train_dl, val_dl, args, test_dl=test_dl)
 

@@ -6,6 +6,7 @@ import numpy as np
 
 from torch.nn.functional import kl_div, softmax, log_softmax
 from models.loss import RankingLoss, CosineLoss, KLDivLoss, DirichletProcessLoss
+from models.multimodal_fusion import MultimodalFusion, CrossAttentionFusion
 import torch.nn.functional as F
 
 class DP_Fusion(nn.Module):
@@ -18,8 +19,8 @@ class DP_Fusion(nn.Module):
 
 
         target_classes = self.args.num_classes
-        lstm_in = self.ehr_model.feats_dim
-        lstm_out = self.cxr_model.feats_dim
+        lstm_in = self.ehr_model.feats_dim #256
+        lstm_out = self.cxr_model.feats_dim #512
         projection_in = self.cxr_model.feats_dim
 
         self.projection = nn.Linear(projection_in, lstm_in)
@@ -43,11 +44,18 @@ class DP_Fusion(nn.Module):
             lstm_in, lstm_out,
             batch_first=True,
             dropout = 0.0)
+        
+        self.cross_attention_fusion = CrossAttentionFusion(in_ts_size=lstm_in, in_cxr_size=lstm_in)
+
+        self.mha_fused_cls = nn.Sequential(
+            nn.Linear(lstm_out, target_classes),
+            nn.Sigmoid()
+        )
 
     def forward(self, x, seq_lengths=None, img=None, pairs=None ):
         
-        ehr_preds , ehr_feats = self.ehr_model(x, seq_lengths)
-        cxr_preds, _ , cxr_feats = self.cxr_model(img)
+        ehr_preds, ehr_feats = self.ehr_model(x, seq_lengths)
+        cxr_preds, _, cxr_feats = self.cxr_model(img)
         projected = self.projection(cxr_feats)
 
         # normalize the ehr_feats&cxr_feats
@@ -87,6 +95,11 @@ class DP_Fusion(nn.Module):
             out = ht.squeeze(0)
             
             fused_preds = self.lstm_fused_cls(out)
+        elif self.args.dp_fuse_type == 'mha':
+            if len(ehr_feats.shape) == 1:
+                feats = ehr_feats[None,:]
+            fusion_feat = self.cross_attention_fusion(ehr_feats, projected)
+            fused_preds = self.mha_fused_cls(fusion_feat)
         else:
             feats = torch.cat([ehr_feats, projected], dim=1)
             fused_preds = self.fused_cls(feats)

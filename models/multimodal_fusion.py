@@ -29,6 +29,35 @@ class Attn_Net_Gated(nn.Module):
         return A, x
     
 
+class CrossAttentionFusion(nn.Module):
+    def __init__(self, in_ts_size, in_cxr_size, shared_emb_dim=256):
+        super(CrossAttentionFusion, self).__init__()
+        self.proj_ts = nn.Linear(in_ts_size, shared_emb_dim)
+        self.proj_cxr = nn.Linear(in_cxr_size, shared_emb_dim)
+
+        # Cross-attention layers
+        self.cross_attention_ts_to_cxr = nn.MultiheadAttention(embed_dim=shared_emb_dim, num_heads=8, batch_first=True)
+        self.cross_attention_cxr_to_ts = nn.MultiheadAttention(embed_dim=shared_emb_dim, num_heads=8, batch_first=True)
+
+        self.atten_net = Attn_Net_Gated(L=shared_emb_dim, D=64, dropout=True, n_classes=1)
+
+    def forward(self, ts_embs, cxr_embs):
+        # Project inputs to shared embedding space
+        ts_embs = self.proj_ts(ts_embs).unsqueeze(1) # bs * 1 * hidden_size(shared_emb_dim)
+        cxr_embs = self.proj_cxr(cxr_embs).unsqueeze(1) # bs * 1 * hidden_size(shared_emb_dim)
+
+        # Cross-attention: ts attends to cxr
+        ts_attended, _ = self.cross_attention_ts_to_cxr(ts_embs, cxr_embs, cxr_embs) # bs * 1 * hidden_size(shared_emb_dim)
+
+        # Cross-attention: cxr attends to ts
+        cxr_attended, _ = self.cross_attention_cxr_to_ts(cxr_embs, ts_embs, ts_embs) # bs * 1 * hidden_size(shared_emb_dim)
+
+        # Concatenate the attended features
+        fused_embs = torch.cat([ts_attended, cxr_attended], dim=-1).squeeze(dim=1) # bs * hidden_size(shared_emb_dim)
+
+        return fused_embs
+    
+
 class MultimodalFusion(nn.Module):
     def __init__(self, in_ts_size, in_cxr_size, shared_emb_dim=128):
         super(MultimodalFusion, self).__init__()
@@ -55,7 +84,7 @@ class MultimodalFusion(nn.Module):
 
 
 if __name__ == "__main__":
-    ts_emb = torch.rand(4, 257)
-    cxr_emb = torch.rand(4, 257)
-    model = MultimodalFusion(in_ts_size=257, in_cxr_size=257)
+    ts_emb = torch.rand(4, 256)
+    cxr_emb = torch.rand(4, 256)
+    model = CrossAttentionFusion(in_ts_size=256, in_cxr_size=256)
     logits = model(ts_emb, cxr_emb) # bs * hidden_size(shared_emb_dim)
