@@ -71,7 +71,13 @@ def args_parser():
     parser.add_argument('--dp_fuse_type', type=str, default=None, help='dp_fuse_type: lstm, mha')
     parser.add_argument('--dp_normalize_feats', action="store_true")
     parser.add_argument('--dp_resample', type=bool, default=True)
-    parser.add_argument('--replace_w_align', type=str, default=None, help='replace_w_align: kl, cos')
+    parser.add_argument('--replace_w_align', type=str, default=None, help='replace_w_align: kl, cos, na')
+        # copula setting
+    parser.add_argument('--copula', type=float, default=0.000001, help='cupula weight')
+    parser.add_argument('--copula_fuse_type', type=str, default='lstm', help='cupula_fuse_type: lstm, mha')
+    parser.add_argument('--copula_normalize_feats', action="store_true")
+    parser.add_argument('--copula_resample', type=bool, default=True)
+    parser.add_argument('--copula_family', type=str, default='Frank', help='cupula_family: Frank, Gumbel, Gaussian')
         # drfuse setting   
     parser.add_argument('--lambda_disentangle_shared', type=float, default=1)
     parser.add_argument('--lambda_disentangle_ehr', type=float, default=1)
@@ -108,5 +114,6 @@ def args_parser():
     parser.add_argument('--temperature', type=float, default=0.0001)
 
     # some default setting
+    parser.set_defaults(dp_normalize_feats=True)
     parser.set_defaults(copula_normalize_feats=True)
     return parser
