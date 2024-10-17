@@ -14,5 +14,5 @@ CUDA_VISIBLE_DEVICES=0 CUDA_LAUNCH_BLOCKING=1 python fusion_main_mimic4.py \
 --rho_scale -3 \
 --temperature 0.005 \
 --dp_fuse_type na \
---save_dir checkpoints/readm/mimic4/abalation/mimic4/copula_paired_wo_fusion
-# nohup sh scripts/readmission/mimic4/abalation/copula_paired_wo_fusion.sh > logs/readm_mimic4/abalation/copula_paired_wo_fusion.log 2>&1 &
+--save_dir checkpoints/readm/mimic4/abalation/mimic4/dp_paired_wo_fusion
+# nohup sh scripts/readmission/mimic4/abalation/dp_paired_wo_fusion.sh > logs/readm_mimic4/abalation/dp_paired_wo_fusion.log 2>&1 &

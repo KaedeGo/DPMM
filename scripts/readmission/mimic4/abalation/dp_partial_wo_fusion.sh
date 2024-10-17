@@ -15,5 +15,5 @@ CUDA_VISIBLE_DEVICES=0 CUDA_LAUNCH_BLOCKING=1 python fusion_main_mimic4.py \
 --temperature 0.005 \
 --dp_resample True \
 --dp_fuse_type na \
---save_dir checkpoints/readm/mimic4/abalation/mimic4/copula_partial_wo_fusion
-# nohup sh scripts/readmission/mimic4/abalation/copula_partial_wo_fusion.sh > logs/readm_mimic4/abalation/copula_partial_wo_fusion.log 2>&1 &
+--save_dir checkpoints/readm/mimic4/abalation/mimic4/dp_partial_wo_fusion
+# nohup sh scripts/readmission/mimic4/abalation/dp_partial_wo_fusion.sh > logs/readm_mimic4/abalation/dp_partial_wo_fusion.log 2>&1 &
