@@ -1,4 +1,4 @@
-CUDA_VISIBLE_DEVICES=6 CUDA_LAUNCH_BLOCKING=1 python fusion_main_mimic4.py \
+CUDA_VISIBLE_DEVICES=3 CUDA_LAUNCH_BLOCKING=1 python fusion_main_mimic4.py \
 --dim 256 --dropout 0 --layers 2 \
 --vision_backbone resnet34 \
 --mode train \
@@ -10,8 +10,8 @@ CUDA_VISIBLE_DEVICES=6 CUDA_LAUNCH_BLOCKING=1 python fusion_main_mimic4.py \
 --labels_set mortality \
 --fusion_type dp \
 --dp 1 \
---dp_resample True \
+--temperature 0.005 \
 --replace_w_align na \
---dp_fuse_type mha \
---save_dir checkpoints/mortality/mimic4/abalation/copula_paired_w_na
-# nohup sh scripts/mortality/mimic4/abalation/copula_paired_w_align.sh > logs/ihm_mimic4/abalation/copula_paired_w_na.log 2>&1 &
+--dp_fuse_type lstm \
+--save_dir checkpoints/mortality/mimic4/abalation/dp_paired_w_na_lstm
+# nohup sh scripts/mortality/mimic4/abalation/dp_paired_w_align.sh > logs/ihm_mimic4/abalation/dp_paired_w_na_lstm.log 2>&1 &
