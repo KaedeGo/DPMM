@@ -4,16 +4,15 @@ CUDA_VISIBLE_DEVICES=0 CUDA_LAUNCH_BLOCKING=1 python fusion_main_mimic4.py \
 --mode train \
 --epochs 100 --batch_size 32 --lr 1e-04 \
 --vision_num_classes 1 --num_classes 1 \
---data_pairs partial_ehr_cxr \
+--data_pairs paired_ehr_cxr \
 --data_ratio 1.0 \
 --task readmission \
 --labels_set readm \
 --fusion_type dp \
 --dp 0.000001 \
---K 3 \
---rho_scale -2.5 \
+--K 5 \
+--rho_scale -3 \
 --temperature 0.005 \
---dp_resample False \
---dp_fuse_type lstm \
---save_dir checkpoints/readm/mimic4/abalation/copula_partial_wo_resample_lstm
-# nohup sh scripts/readmission/mimic4/abalation/copula_partial_wo_resample.sh > logs/readm_mimic4/abalation/copula_partial_wo_resample_lstm.log 2>&1 &
+--dp_fuse_type na \
+--save_dir checkpoints/readm/mimic4/abalation/mimic4/copula_paired_wo_fusion
+# nohup sh scripts/readmission/mimic4/abalation/copula_paired_wo_fusion.sh > logs/readm_mimic4/abalation/copula_paired_wo_fusion.log 2>&1 &

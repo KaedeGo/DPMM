@@ -10,7 +10,7 @@ CUDA_VISIBLE_DEVICES=6 CUDA_LAUNCH_BLOCKING=1 python fusion_main_mimic4.py \
 --labels_set readm \
 --fusion_type dp \
 --dp 1 \
---dp_resample True \
+--temperature 0.005 \
 --replace_w_align na \
 --dp_fuse_type mha \
 --save_dir checkpoints/readm/mimic4/abalation/copula_paired_w_na
