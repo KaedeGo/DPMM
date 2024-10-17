@@ -1,0 +1,331 @@
+from __future__ import absolute_import
+from __future__ import print_function
+import torch
+import torch.nn as nn
+import torch.optim as optim
+from torch.optim.lr_scheduler import ReduceLROnPlateau
+from models.triple.fusion_dp import DP_Fusion
+from models.ehr_models import LSTM
+from models.cxr_models import CXRModels
+from models.note_models import BertForRepresentation as NoteModels
+from trainers.trainer import Trainer
+import wandb
+import numpy as np
+
+
+class DirichletProcessTrainer(Trainer):
+    def __init__(self, train_dl, val_dl, args, test_dl=None):
+
+        super(DirichletProcessTrainer, self).__init__(args)
+        self.epoch = 0
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+        self.args = args
+        self.train_dl = train_dl
+        self.val_dl = val_dl
+        self.test_dl = test_dl
+
+        self.ehr_model = LSTM(
+            input_dim=76,
+            num_classes=args.num_classes,
+            hidden_dim=args.dim,
+            dropout=args.dropout,
+            layers=args.layers,
+        ).to(self.device)
+        self.cxr_model = CXRModels(self.args, self.device).to(self.device)
+        self.note_model = NoteModels(self.args).to(self.device)
+
+        self.model = DP_Fusion(
+            args, self.ehr_model, self.cxr_model, self.note_model
+        ).to(self.device)
+        self.init_fusion_method()
+
+        self.loss = nn.BCELoss()
+
+        self.optimizer = optim.Adam(
+            self.model.parameters(), args.lr, betas=(0.9, self.args.beta_1)
+        )
+        self.load_state()
+        print(self.ehr_model)
+        print(self.optimizer)
+        print(self.loss)
+        self.scheduler = ReduceLROnPlateau(
+            self.optimizer, factor=0.5, patience=10, mode="min"
+        )
+
+        self.best_auroc = 0
+        self.best_stats = None
+        self.epochs_stats = {
+            "loss train": [],
+            "loss val": [],
+            "auroc val": [],
+            "auroc test": [],
+            "loss dp train": [],
+            "loss dp val": [],
+            "loss align train": [],
+            "loss align val": [],
+        }
+
+    def init_fusion_method(self):
+        if self.args.load_state is not None:
+            self.load_state()
+
+    def train_epoch(self):
+        print(f"starting train epoch {self.epoch}")
+        epoch_loss = 0
+        epoch_loss_dp = 0
+
+        outGT = torch.FloatTensor().to(self.device)
+        outPRED = torch.FloatTensor().to(self.device)
+        steps = len(self.train_dl)
+        for i, (x, img, token, mask, y_ehr, y_cxr, seq_lengths, pairs) in enumerate(
+            self.train_dl
+        ):
+            y = self.get_gt(y_ehr, y_cxr)
+            x = torch.from_numpy(x).float()
+            x = x.to(self.device)
+            y = y.to(self.device)
+            img = img.to(self.device)
+            token = token.to(self.device)
+            mask = mask.to(self.device)
+            if (
+                self.args.task == "in-hospital-mortality"
+                or self.args.task == "readmission"
+            ):
+                y = y.unsqueeze(1)
+
+            output = self.model(x, seq_lengths, img, token, mask, pairs)
+
+            pred = output[self.args.fusion_type]
+            loss = self.loss(pred, y) / np.max(
+                [np.exp(-self.args.temperature * self.epoch), 0.001]
+            )
+
+            epoch_loss += loss.item()
+            loss = loss + self.args.dp * output["dp_loss"]
+            epoch_loss_dp += self.args.dp * output["dp_loss"].item()
+
+            self.optimizer.zero_grad()
+            loss.backward()
+            self.optimizer.step()
+            outPRED = torch.cat((outPRED, pred), 0)
+            outGT = torch.cat((outGT, y), 0)
+
+            if i % 100 == 9:
+                eta = self.get_eta(self.epoch, i)
+                print(
+                    f" epoch [{self.epoch:04d} / {self.args.epochs:04d}] [{i:04}/{steps}] eta: {eta:<20}  lr: \t{self.optimizer.param_groups[0]['lr']:0.4E} \tloss: {epoch_loss/i:0.5f}, loss dp: {epoch_loss_dp/i:0.4f}"
+                )
+
+        ret = self.computeAUROC(
+            outGT.data.cpu().numpy(), outPRED.data.cpu().numpy(), use_best_thresh=True
+        )
+        self.epochs_stats["loss train"].append(epoch_loss / i)
+        self.epochs_stats["loss dp train"].append(epoch_loss_dp / i)
+        if wandb.run is not None:
+            wandb.log(
+                {
+                    "loss": epoch_loss / i,
+                    "loss_dp": epoch_loss_dp / i,
+                    "lr": self.optimizer.param_groups[0]["lr"],
+                    "train_auroc": ret["auroc_mean"],
+                    "trainauprc": ret["auprc_mean"],
+                    "train_f1": ret["f1_mean"],
+                    "theta": self.model.dp_loss.theta.item(),
+                }
+            )
+
+        return ret
+
+    def validate(self, dl, use_best_thresh=False):
+        print(f"starting val epoch {self.epoch}")
+        epoch_loss = 0
+        epoch_loss_dp = 0
+        outGT = torch.FloatTensor().to(self.device)
+        outPRED = torch.FloatTensor().to(self.device)
+
+        with torch.no_grad():
+            for i, (x, img, token, mask, y_ehr, y_cxr, seq_lengths, pairs) in enumerate(
+                dl
+            ):
+                y = self.get_gt(y_ehr, y_cxr)
+                x = torch.from_numpy(x).float()
+                x = x.to(self.device)
+                y = y.to(self.device)
+                img = img.to(self.device)
+                token = token.to(self.device)
+                mask = mask.to(self.device)
+                if (
+                    self.args.task == "in-hospital-mortality"
+                    or self.args.task == "readmission"
+                ):
+                    y = y.unsqueeze(1)
+
+                output = self.model(x, seq_lengths, img, token, mask, pairs)
+
+                pred = output[self.args.fusion_type]
+                loss = self.loss(pred, y)
+                epoch_loss += loss.item()
+                loss += self.args.dp * output["dp_loss"]
+                epoch_loss_dp += self.args.dp * output["dp_loss"].item()
+                outPRED = torch.cat((outPRED, pred), 0)
+                outGT = torch.cat((outGT, y), 0)
+
+        self.scheduler.step(epoch_loss / len(self.val_dl))
+
+        print(
+            f"val [{self.epoch:04d} / {self.args.epochs:04d}] validation loss: \t{epoch_loss/i:0.5f}, validation dp loss: {epoch_loss_dp/i:0.5f}"
+        )
+        ret = self.computeAUROC(
+            outGT.data.cpu().numpy(), outPRED.data.cpu().numpy(), use_best_thresh
+        )
+        np.save(f"{self.args.save_dir}/pred.npy", outPRED.data.cpu().numpy())
+        np.save(f"{self.args.save_dir}/gt.npy", outGT.data.cpu().numpy())
+
+        self.epochs_stats["auroc val"].append(ret["auroc_mean"])
+        self.epochs_stats["loss val"].append(epoch_loss / i)
+        self.epochs_stats["loss dp val"].append(epoch_loss_dp / i)
+
+        if wandb.run is not None:
+            wandb.log(
+                {
+                    "val_auroc": ret["auroc_mean"],
+                    "val_auprc": ret["auprc_mean"],
+                    "val_f1": ret["f1_mean"],
+                    "val_auroc_ci_l": ret["ci_auroc"][0][0],
+                    "val_auprc_ci_l": ret["ci_auprc"][0][0],
+                    "val_auroc_ci_u": ret["ci_auroc"][0][1],
+                    "val_auprc_ci_u": ret["ci_auprc"][0][1],
+                    "val_f1_ci_l": ret["ci_f1"][0][0],
+                    "val_f1_ci_u": ret["ci_f1"][0][1],
+                }
+            )
+
+        return ret
+
+    def quick_test(self, dl):
+        print(f"starting quick test epoch {self.epoch}")
+        outGT = torch.FloatTensor().to(self.device)
+        outPRED = torch.FloatTensor().to(self.device)
+
+        with torch.no_grad():
+            for i, (x, img, token, mask, y_ehr, y_cxr, seq_lengths, pairs) in enumerate(
+                dl
+            ):
+                y = self.get_gt(y_ehr, y_cxr)
+                x = torch.from_numpy(x).float()
+                x = x.to(self.device)
+                y = y.to(self.device)
+                img = img.to(self.device)
+                token = token.to(self.device)
+                mask = mask.to(self.device)
+                if (
+                    self.args.task == "in-hospital-mortality"
+                    or self.args.task == "readmission"
+                ):
+                    y = y.unsqueeze(1)
+
+                output = self.model(x, seq_lengths, img, token, mask, pairs)
+
+                pred = output[self.args.fusion_type]
+
+                outPRED = torch.cat((outPRED, pred), 0)
+                outGT = torch.cat((outGT, y), 0)
+
+        print(f"test [{self.epoch:04d} / {self.args.epochs:04d}]")
+        ret = self.computeAUROC(
+            outGT.data.cpu().numpy(), outPRED.data.cpu().numpy(), use_best_thresh=True
+        )
+        np.save(f"{self.args.save_dir}/pred.npy", outPRED.data.cpu().numpy())
+        np.save(f"{self.args.save_dir}/gt.npy", outGT.data.cpu().numpy())
+
+        self.epochs_stats["auroc test"].append(ret["auroc_mean"])
+
+        if wandb.run is not None:
+            wandb.log(
+                {
+                    "test_auroc": ret["auroc_mean"],
+                    "test_auprc": ret["auprc_mean"],
+                    "test_f1": ret["f1_mean"],
+                    "test_auroc_ci_l": ret["ci_auroc"][0][0],
+                    "test_auprc_ci_l": ret["ci_auprc"][0][0],
+                    "test_auroc_ci_u": ret["ci_auroc"][0][1],
+                    "test_auprc_ci_u": ret["ci_auprc"][0][1],
+                    "test_f1_ci_l": ret["ci_f1"][0][0],
+                    "test_f1_ci_u": ret["ci_f1"][0][1],
+                }
+            )
+
+        return ret
+
+    def test(self):
+        print("validating ... ")
+        self.epoch = 0
+        self.model.eval()
+        ret = self.validate(self.val_dl)
+        self.print_and_write(
+            ret,
+            isbest=True,
+            prefix=f"{self.args.fusion_type} val",
+            filename="results_val.txt",
+        )
+        self.model.eval()
+        ret = self.validate(self.test_dl)
+        self.print_and_write(
+            ret,
+            isbest=True,
+            prefix=f"{self.args.fusion_type} test",
+            filename="results_test.txt",
+        )
+        return
+
+    def eval(self):
+        print("validating ... ")
+        self.epoch = 0
+        self.model.eval()
+        ret = self.validate(self.val_dl, use_best_thresh=True)
+        self.print_and_write(
+            ret,
+            isbest=True,
+            prefix=f"{self.args.fusion_type} val",
+            filename="results_val.txt",
+        )
+        self.model.eval()
+        ret = self.validate(self.test_dl, use_best_thresh=True)
+        self.print_and_write(
+            ret,
+            isbest=True,
+            prefix=f"{self.args.fusion_type} test",
+            filename="results_test.txt",
+        )
+        return ret
+
+    def train(self):
+        print(f"running for fusion_type {self.args.fusion_type}")
+        for self.epoch in range(self.start_epoch, self.args.epochs):
+            self.model.eval()
+            ret = self.validate(self.val_dl)
+            # or not use_best_thresh in quich test
+            if not self.best_threshold:
+                self.best_threshold = ret["thresholds"]
+            self.quick_test(self.test_dl)
+            self.save_checkpoint(prefix="last")
+
+            if self.best_auroc < ret["auroc_mean"]:
+                self.best_auroc = ret["auroc_mean"]
+                self.best_threshold = ret['thresholds']
+                self.best_stats = ret
+                self.save_checkpoint(prefix="best")
+                self.print_and_write(ret, isbest=True)
+                self.patience = 0
+            else:
+                self.print_and_write(ret, isbest=False)
+                self.patience += 1
+
+            self.model.train()
+            self.train_epoch()
+            self.plot_stats(key="loss", filename="loss.pdf")
+            self.plot_stats(key="auroc", filename="auroc.pdf")
+            if self.patience >= self.args.patience:
+                break
+        self.print_and_write(self.best_stats, isbest=True)

@@ -48,7 +48,7 @@ class DP_Fusion(nn.Module):
         self.cross_attention_fusion = CrossAttentionFusion(in_ts_size=lstm_in, in_cxr_size=lstm_in)
 
         self.mha_fused_cls = nn.Sequential(
-            nn.Linear(lstm_out, target_classes),
+            nn.Linear(feats_dim, target_classes),
             nn.Sigmoid()
         )
 
@@ -71,7 +71,9 @@ class DP_Fusion(nn.Module):
         else :
             projected[list(~np.array(pairs))] = 0
 
-        if self.args.replace_w_align == "kl":
+        if self.args.replace_w_align == "na":
+            dp_loss = torch.tensor(0.0).to(ehr_feats.device)
+        elif self.args.replace_w_align == "kl":
             dp_loss = self.kl_loss(ehr_feats, projected)
         elif self.args.replace_w_align == "cos":
             dp_loss = self.align_loss(ehr_feats, projected)

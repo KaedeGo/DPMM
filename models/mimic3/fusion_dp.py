@@ -41,7 +41,7 @@ class DP_Fusion(nn.Module):
         self.cross_attention_fusion = CrossAttentionFusion(in_ts_size=lstm_in, in_cxr_size=lstm_in)
 
         self.mha_fused_cls = nn.Sequential(
-            nn.Linear(lstm_out, target_classes),
+            nn.Linear(feats_dim, target_classes),
             nn.Sigmoid()
         )
 

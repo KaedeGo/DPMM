@@ -56,6 +56,35 @@ class CrossAttentionFusion(nn.Module):
         fused_embs = torch.cat([ts_attended, cxr_attended], dim=-1).squeeze(dim=1) # bs * hidden_size(shared_emb_dim)
 
         return fused_embs
+
+class CrossAttentionFusion3D(nn.Module):
+    def __init__(self, in_ts_size, in_cxr_size, in_note_size, shared_emb_dim=256):
+        super(CrossAttentionFusion3D, self).__init__()
+        self.proj_ts = nn.Linear(in_ts_size, shared_emb_dim)
+        self.proj_cxr = nn.Linear(in_cxr_size, shared_emb_dim)
+        self.proj_note = nn.Linear(in_note_size, shared_emb_dim)
+
+        # Cross-attention layers
+        self.cross_attention_ts = nn.MultiheadAttention(embed_dim=shared_emb_dim, num_heads=8, batch_first=True)
+        self.cross_attention_cxr = nn.MultiheadAttention(embed_dim=shared_emb_dim, num_heads=8, batch_first=True)
+        self.cross_attention_note = nn.MultiheadAttention(embed_dim=shared_emb_dim, num_heads=8, batch_first=True)
+
+        # self.atten_net = Attn_Net_Gated(L=shared_emb_dim, D=64, dropout=True, n_classes=1)
+
+    def forward(self, ts_embs, cxr_embs, note_embs):
+        # Project inputs to shared embedding space
+        ts_embs = self.proj_ts(ts_embs).unsqueeze(1) # bs * 1 * hidden_size(shared_emb_dim)
+        cxr_embs = self.proj_cxr(cxr_embs).unsqueeze(1) # bs * 1 * hidden_size(shared_emb_dim)
+        note_embs = self.proj_note(note_embs).unsqueeze(1) # bs * 1 * hidden_size(shared_emb_dim)
+
+        ts_attended, _ = self.cross_attention_ts(ts_embs, cxr_embs, cxr_embs)
+        cxr_attended, _ = self.cross_attention_cxr(cxr_embs, note_embs, note_embs)
+        note_attended, _ = self.cross_attention_note(note_embs, ts_embs, ts_embs)
+
+        # Concatenate the attended features
+        fused_embs = torch.cat([ts_attended, cxr_attended, note_attended], dim=-1).squeeze(dim=1)
+
+        return fused_embs
     
 
 class MultimodalFusion(nn.Module):

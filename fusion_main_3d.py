@@ -8,7 +8,7 @@ from trainers.triple.mmtm_trainer import MMTMTrainer
 from trainers.triple.daft_trainer import DAFTTrainer
 from trainers.triple.drfuse_trainer import DrFuseTrainer
 from trainers.triple.copula_trainer import CopulaTrainer
-# from trainers.triple.dp_trainer import DirichletProcessTrainer
+from trainers.triple.dp_trainer import DirichletProcessTrainer
 from ehr_utils.preprocessing import Discretizer, Normalizer
 from dataset_mimic4.ehr_dataset import get_datasets
 from dataset_mimic4.cxr_note_dataset import get_cxr_note_datasets
@@ -76,7 +76,6 @@ if __name__ == "__main__":
     args = parser.parse_args()
     args.ehr_data_dir = MIMIC4_DATA_DIR
     args.cxr_data_dir = CXR_DATA_DIR
-    # args.task = 'in-hospital-mortality'
     args.normalizer_state = MIMIC4_NORMALIZER_PATH
     args.data_pairs = "paired_ehr_cxr"
     # if args.missing_token is not None:
@@ -127,8 +126,8 @@ if __name__ == "__main__":
             trainer = DrFuseTrainer(train_dl, val_dl, args, test_dl=test_dl)
         elif args.fusion_type == "copula":
             trainer = CopulaTrainer(train_dl, val_dl, args, test_dl=test_dl)
-        # elif args.fusion_type == "dp":
-        #     trainer = DirichletProcessTrainer(train_dl, val_dl, args, test_dl=test_dl)
+        elif args.fusion_type == "dp":
+            trainer = DirichletProcessTrainer(train_dl, val_dl, args, test_dl=test_dl)
         else:
             trainer = FusionTrainer(train_dl, val_dl, args, test_dl=test_dl)
 
