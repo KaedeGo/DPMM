@@ -308,7 +308,8 @@ class DirichletProcessTrainer(Trainer):
             # or not use_best_thresh in quich test
             if not self.best_threshold:
                 self.best_threshold = ret["thresholds"]
-            self.quick_test(self.test_dl)
+            test_ret = self.quick_test(self.test_dl)
+            self.print_and_write(test_ret, prefix='quick-test', isbest=True)
             self.save_checkpoint(prefix="last")
 
             if self.best_auroc < ret["auroc_mean"]:
