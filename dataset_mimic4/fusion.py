@@ -202,7 +202,7 @@ def load_cxr_ehr(
         shuffle=True,
         collate_fn=my_collate,
         pin_memory=True,
-        num_workers=0,
+        num_workers=4,
         drop_last=True,
     )
     val_dl = DataLoader(
@@ -211,7 +211,7 @@ def load_cxr_ehr(
         shuffle=False,
         collate_fn=my_collate,
         pin_memory=True,
-        num_workers=0,
+        num_workers=4,
         drop_last=False,
     )
     test_dl = DataLoader(
@@ -220,7 +220,7 @@ def load_cxr_ehr(
         shuffle=False,
         collate_fn=my_collate,
         pin_memory=True,
-        num_workers=0,
+        num_workers=4,
         drop_last=False,
     )
 
@@ -272,13 +272,10 @@ def pad_zeros(arr, min_length=None):
 
 
 if __name__ == "__main__":
-    import sys
-
-    sys.path.append("/home/fwu/Documents/myProjects/MedFuse/")
     from arguments import args_parser
     from ehr_utils.preprocessing import Discretizer, Normalizer
-    from datasets_mf.ehr_dataset import get_datasets
-    from datasets_mf.cxr_dataset import get_cxr_datasets
+    from dataset_mimic4.ehr_dataset import get_datasets
+    from dataset_mimic4.cxr_dataset import get_cxr_datasets
 
     parser = args_parser()
     args = parser.parse_args()

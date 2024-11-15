@@ -189,15 +189,12 @@ def get_note_datasets(args):
 
 
 if __name__ == "__main__":
-    import sys
-
-    sys.path.append("/home/fwu/Documents/myProjects/MedFuse/")
     from torch.utils.data import DataLoader
     from arguments import args_parser
 
     parser = args_parser()
     args = parser.parse_args()
-    args.ehr_data_dir = "/disk1/fwu/myProjects/MedFuse/data_mimic3"
+    args.ehr_data_dir = "data_mimic3"
     args.labels_set = "pheno"
     args.task = "phenotyping_48h"
 
