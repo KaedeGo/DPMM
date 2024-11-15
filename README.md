@@ -1,4 +1,4 @@
-## Code for [DPMM](-): Amplifying Predictive Representations in Multimodal Learning  \\ via Variational Dirichlet Process
+## Code for [DPMM](-): Amplifying Prominent Representations in Multimodal Learning via Variational Dirichlet Process
 
 
 Table of contents
@@ -7,10 +7,10 @@ Table of contents
 <!--ts-->
 - [Table of contents](#table-of-contents)
 - [Background](#background)
-- [Overview of the CM$^2$ network](#overview-of-the-cm2-network)
+- [Overview of the DPMM network](#overview-of-the-dpmm-network)
 - [Environment setup](#environment-setup)
   - [Dataset](#dataset)
-- [Overview of the network with CM$^2$ module](#overview-of-the-network-with-cm2-module)
+- [Overview of the network with DPMM module](#overview-of-the-network-with-cm2-module)
   - [Model training](#model-training)
   - [Model evaluation](#model-evaluation)
 - [Citation](#citation)
