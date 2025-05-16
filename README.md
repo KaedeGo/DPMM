@@ -19,15 +19,15 @@ Table of contents
 
 Background
 ============
-eveloping effective multimodal fusion approaches has been increasingly essential as they demonstrate promising performance in many real-world scenarios, such as healthcare and finance. The key challenge is how to preserve the feature expressiveness in each modality while learning cross-modal interactions between the modalities. Previous approaches mainly focus on the cross-modal alignment,
-while over-emphasis on the alignment of marginal distributions of the modalities would impose excess regularization and hinder the significant representations within each modality. Dirichlet process (DP) is a powerful Bayesian non-parametric model that can amplify the most prominent features by its richer-gets-richer property, which allocates increasing weights to them. Inspired by this, we propose a novel DP-driven multimodal learning framework to automatically optimize the tradeoff between learn
+Developing effective multimodal fusion approaches has been increasingly essential as they demonstrate promising performance in many real-world scenarios, such as healthcare and finance. The key challenge is how to preserve the feature expressiveness in each modality while learning cross-modal interactions between the modalities. Previous approaches mainly focus on the cross-modal alignment,
+while over-emphasizing the alignment of marginal distributions of the modalities would impose excess regularization and hinder the significant representations within each modality. Dirichlet process (DP) is a powerful Bayesian non-parametric model that can amplify the most prominent features by its richer-gets-richer property, which allocates increasing weights to them. Inspired by this, we propose a novel DP-driven multimodal learning framework to automatically optimize the tradeoff between learn
 ing prominent intra-modal representation and cross-modal alignment. Specifically, we assume a mixture of multivariate Gaussian distribution for each modality and propose to calculate the mixture weights of all mixture components with DP. Therefore, DP can dynamically allocate the contributions of features and select the prominent features by its richer-gets-richer property. Extensive experiments on clinical and general multimodal datasets demonstrate the superior performance of our model over other competitors. Ablation analysis further validates the effectiveness of DP in aligning modality distributions and its robustness to changes in key hyperparameters
 
 
 Overview of the DPMM network
 ====================================
 
-We first extract and link the datasets from MIMIC-IV, MIMIC-III and MIMIC-CXR based on the task definition (i.e., in hospital mortality prediction, or readmission prediction). The data splits of the training, validation, and test sets are summarized for each task, and the prevalence of positive and negative labels for in-hospital mortality and readmission is shown in 
+We first extract and link the datasets from MIMIC-IV, MIMIC-III, and MIMIC-CXR based on the task definition (i.e., in hospital mortality prediction, or readmission prediction). The data splits of the training, validation, and test sets are summarized for each task, and the prevalence of positive and negative labels for in-hospital mortality and readmission is shown in 
 ![](figures/datset_summary.png)
 
 
@@ -47,18 +47,18 @@ We used [MIMIC-III EHR](https://physionet.org/content/mimiciii/1.4/) and [MIMIC-
 We provide the script for MIMIC-III following [MIMIC-III Benchmark](https://github.com/YerevaNN/mimic3-benchmarks), and script for MIMIC-IV following [MedFuse](https://github.com/nyuad-cai/MedFuse).
 Please follow the [MIMIC3-readme](mimic3extract/README.md) and [MIMIC4-readme](mimic4extract/README.md) to extract and prepare the time-series EHR dataset for experiments. Download the [MIMIC CXR](https://physionet.org/content/mimic-cxr-jpg/2.0.0/) dataset and [MIMIC-CXR-REPORT](https://physionet.org/content/mimic-cxr/2.1.0/) dataset.
 
-Please specify the ehr_data_dir and cxr_data_dir directories paths before running the scripts.
+Please specify the ehr_data_dir and cxr_data_dir directory paths before running the scripts.
 
 After extracting the time-series data, clinical note data. Please follow the preprocess steps to link the defferent modalities data.
 ```
 cd ehr utils
 python resize.py # resize the images
-python create_split.py # exclude the subjects from training split of CXR dataset which are present in validation and test splits of EHR dataset
+python create_split.py # exclude the subjects from training split of CXR dataset which are present in the validation and test splits of EHR dataset
 python create_split_cxr_w_note.py # merge cxr and reports with EHR dataset
 python creat_section_files.py # extract sections form radiology report
 ```
 
-before training the modal, the directories paths of dataset should be like:
+before training the modal, the directory paths of dataset should be like:
 ```
 DPMM
 |── data_mimic3
