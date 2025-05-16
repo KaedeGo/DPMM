@@ -1,4 +1,4 @@
-## Code for [DPMM](-): Amplifying Prominent Representations in Multimodal Learning via Variational Dirichlet Process
+## Code for DPMM: Amplifying Prominent Representations in Multimodal Learning via Variational Dirichlet Process
 
 
 Table of contents
