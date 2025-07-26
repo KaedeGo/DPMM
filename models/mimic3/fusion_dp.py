@@ -1,7 +1,7 @@
 import torch.nn as nn
 import torch
 import numpy as np
-from models.loss import CosineLoss, KLDivLoss, DirichletProcessLoss
+from models.loss import CosineLoss, KLDivLoss, DirichletProcessLoss, DirichletProcessLossSep
 from models.multimodal_fusion import MultimodalFusion, CrossAttentionFusion
 import torch.nn.functional as F
 
@@ -28,7 +28,7 @@ class DP_Fusion(nn.Module):
 
         self.align_loss = CosineLoss()
         self.kl_loss = KLDivLoss()
-        self.dp_loss = DirichletProcessLoss(K=args.K, M=2, rho_scale=args.rho_scale)
+        self.dp_loss = DirichletProcessLoss(K=args.K, M=2, rho_scale=args.rho_scale, eta=args.eta)
 
         self.lstm_fused_cls = nn.Sequential(
             nn.Linear(lstm_out, target_classes), nn.Sigmoid()
@@ -44,6 +44,11 @@ class DP_Fusion(nn.Module):
             nn.Linear(feats_dim, target_classes),
             nn.Sigmoid()
         )
+
+        self.args.sep_dp = True
+
+        if self.args.sep_dp is True:
+            self.dp_loss = DirichletProcessLossSep(K=args.K, rho_scale=args.rho_scale, eta=args.eta)
 
     def forward(self, x, seq_lengths=None, token=None, mask=None, pairs=None):
 
@@ -69,7 +74,11 @@ class DP_Fusion(nn.Module):
         if self.args.replace_w_align:
             dp_loss = self.align_loss(ehr_feats, projected)
         else:
-            dp_loss = self.dp_loss(ehr_feats, projected)
+            if self.args.sep_dp is True:
+                dp_loss = self.dp_loss(ehr_feats)
+                dp_loss += self.dp_loss(projected)
+            else:
+                dp_loss = self.dp_loss(ehr_feats, projected)
 
         if self.args.dp_fuse_type == "lstm":
             if len(ehr_feats.shape) == 1:

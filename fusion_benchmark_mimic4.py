@@ -79,8 +79,9 @@ train_dl, val_dl, test_dl = load_cxr_ehr(args, ehr_train_ds, ehr_val_ds, cxr_tra
 # for lr in [0.0001, 0.0005, 0.001]:
     # for dr in [0, 0.05, 0.1, 0.2, 0.3, 0.4]:
 # for temperature in [0.001, 0.01]:
-for rho_scale in [-2.5, -3, -4]:
-    for K in [2, 3, 5]:
+for rho_scale in [-2.5, -3, -3.5, -4]:
+    for K in [2, 3, 4, 5]:
+        for eta in [0.1, 0.5, 1, 2, 5]:
                 if "partial" in args.data_pairs:
                     pair_type = "partial"
                 else:
@@ -93,6 +94,7 @@ for rho_scale in [-2.5, -3, -4]:
 
                 # args.lr = lr
                 # args.dropout = dr
+                args.eta = eta
                 args.K = K
                 args.rho_scale = rho_scale
                 args.temperature = 0

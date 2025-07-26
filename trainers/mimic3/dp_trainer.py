@@ -246,6 +246,9 @@ class DirichletProcessTrainer(Trainer):
 
         self.epochs_stats["auroc test"].append(ret["auroc_mean"])
 
+        if not self.args.sep_dp:
+            self.plot_density()
+
         if wandb.run is not None:
             wandb.log(
                 {
@@ -335,3 +338,45 @@ class DirichletProcessTrainer(Trainer):
             if self.patience >= self.args.patience:
                 break
         self.print_and_write(self.best_stats, isbest=True)
+
+    def plot_density(self):
+        """
+        Plot bimodal density
+        """
+
+        from torch.distributions import MultivariateNormal
+        from matplotlib import pyplot as plt
+
+        mu_x = self.model.dp_loss.mu_x.detach().cpu()
+        mu_y = self.model.dp_loss.mu_x.detach().cpu()
+
+        pi_x1 = self.model.dp_loss.phi[0]
+        pi_x2 = self.model.dp_loss.phi[2]
+
+        pi_y1 = self.model.dp_loss.phi[1]
+        pi_y2 = self.model.dp_loss.phi[3]
+
+        x = torch.linspace(-10, 10, steps=200)
+        y = torch.linspace(-10, 10, steps=200)
+
+        rvx_1 = MultivariateNormal(self.model.dp_loss.mu_x[0], self.model.dp_loss.cov_x[0])
+        rvx_2 = MultivariateNormal(self.model.dp_loss.mu_x[1], self.model.dp_loss.cov_x[1])
+
+        rvy_1 = MultivariateNormal(self.model.dp_loss.mu_y[0], self.model.dp_loss.cov_y[0])
+        rvy_2 = MultivariateNormal(self.model.dp_loss.mu_y[1], self.model.dp_loss.cov_y[1])
+
+        pdf_x = pi_x1 * torch.exp(rvx_1.log_prob(x)) + pi_x2 * torch.exp(rvx_2.log_prob(x))
+        pdf_y = pi_y1 * torch.exp(rvy_1.log_prob(y)) + pi_y2 * torch.exp(rvy_2.log_prob(y))
+
+        # fig = plt.figure(figsize=(10, 8))
+        # ax = fig.add_subplot(111, projection='3d')
+        #
+        # ax.plot_surface(x, y, pdf_x, cmap='Greens', alpha=0.8, rstride=1, cstride=1, linewidth=0, antialiased=True,
+        #                 zorder=3)
+        #
+        # ax.plot_surface(x, y, pdf_y, cmap='Blues', alpha=0.8, rstride=1, cstride=1, linewidth=0, antialiased=True,
+        #                 zorder=2)
+
+        pass
+
+

@@ -104,6 +104,9 @@ class DirichletProcessTrainer(Trainer):
         ret = self.computeAUROC(outGT.data.cpu().numpy(), outPRED.data.cpu().numpy(), use_best_thresh=True)
         self.epochs_stats['loss train'].append(epoch_loss/i)
         self.epochs_stats['loss dp train'].append(epoch_loss_dp/i)
+
+        self.plot_density()
+
         if wandb.run is not None:
             wandb.log(
                 {
@@ -274,6 +277,63 @@ class DirichletProcessTrainer(Trainer):
             if self.patience >= self.args.patience:
                 break
         self.print_and_write(self.best_stats , isbest=True)
+
+    def plot_density(self):
+        """
+        Plot bimodal density
+        """
+
+        from torch.distributions import MultivariateNormal
+        from matplotlib import pyplot as plt
+
+        mu_x = self.model.dp_loss.mu_x.detach().cpu()
+        mu_y = self.model.dp_loss.mu_x.detach().cpu()
+
+        cov_x = self.model.dp_loss.cov_x.detach().cpu()
+        cov_y = self.model.dp_loss.cov_y.detach().cpu()
+
+        phi = self.model.dp_loss.phi.mean(0).cpu()
+
+
+        x = self.model.dp_loss.rsample([1000], return_x=True).detach().cpu()
+        y = self.model.dp_loss.rsample([1000], return_x=True).detach().cpu()
+
+        rvx_1 = MultivariateNormal(mu_x[0], torch.diag(cov_x[0]))
+        rvx_2 = MultivariateNormal(mu_x[1], torch.diag(cov_x[1]))
+
+        rvy_1 = MultivariateNormal(mu_y[0], torch.diag(cov_y[0]))
+        rvy_2 = MultivariateNormal(mu_y[1], torch.diag(cov_y[1]))
+
+        pdf_x1 = (rvx_1.log_prob(x) + torch.log(phi[self.args.K])).numpy()
+        pdf_x2 = (rvx_2.log_prob(x) + torch.log(phi[self.args.K + 1])).numpy()
+        pdf_y1 = (rvy_1.log_prob(y) + torch.log(phi[self.args.K])).numpy()
+        pdf_y2 = (rvy_2.log_prob(y) + torch.log(phi[self.args.K + 1])).numpy()
+        pdf_x = pdf_x1 + pdf_x2
+        pdf_y = pdf_y1 + pdf_y2
+
+        # fig = plt.figure(figsize=(10, 8))
+        # ax = fig.add_subplot(111, projection='3d')
+        #
+        # ax.plot_surface(x, y, pdf_x, cmap='Greens', alpha=0.8, rstride=1, cstride=1, linewidth=0, antialiased=True,
+        #                 zorder=3)
+        #
+        # ax.plot_surface(x, y, pdf_y, cmap='Blues', alpha=0.8, rstride=1, cstride=1, linewidth=0, antialiased=True,
+        #                 zorder=2)
+
+        import plotly.express as px
+        import plotly.figure_factory as ff
+
+        fig1 = ff.create_distplot([pdf_x, pdf_y], ["pdf_x", "pdf_y"], bin_size=.05, show_rug=False)
+        fig2 = ff.create_distplot([pdf_x1, pdf_x2, pdf_y1, pdf_y2],
+                                  ["pdf_x1", "pdf_x2", "pdf_y1", "pdf_y2"], bin_size=.05, show_rug=False)
+
+        if wandb.run is not None:
+            wandb.log({"Density_1": fig1})
+            wandb.log({"Density_2": fig2})
+
+
+        return
+
 
         
     

@@ -114,7 +114,7 @@ def load_note_ehr(
         shuffle=True,
         collate_fn=my_collate,
         pin_memory=True,
-        num_workers=16,
+        num_workers=0,
         drop_last=True,
     )
     val_dl = DataLoader(
@@ -123,7 +123,7 @@ def load_note_ehr(
         shuffle=False,
         collate_fn=my_collate,
         pin_memory=True,
-        num_workers=16,
+        num_workers=0,
         drop_last=False,
     )
     test_dl = DataLoader(
@@ -132,7 +132,7 @@ def load_note_ehr(
         shuffle=False,
         collate_fn=my_collate,
         pin_memory=True,
-        num_workers=16,
+        num_workers=0,
         drop_last=False,
     )
 

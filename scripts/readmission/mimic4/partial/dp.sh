@@ -1,5 +1,5 @@
 CUDA_VISIBLE_DEVICES=1 CUDA_LAUNCH_BLOCKING=1 python fusion_main_mimic4.py \
---dim 256 --dropout 0.3 --layers 2 \
+--dim 256 --dropout 0 --layers 2 \
 --vision_backbone resnet34 \
 --mode train \
 --epochs 100 --batch_size 32 \

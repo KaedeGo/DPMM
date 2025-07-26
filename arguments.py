@@ -17,7 +17,7 @@ def args_parser():
     parser.add_argument('--batch_size', type=int, default=32)
     parser.add_argument('--num_workers', type=int, default=4)
         # data pairs setting 
-    parser.add_argument('--data_pairs', type=str, default='paired_ehr_cxr', help='paired, partial, ehr, cxr')
+    parser.add_argument('--data_pairs', type=str, default='paired_ehr_note', help='paired, partial, ehr, cxr')
     parser.add_argument('--data_ratio', type=float, default=1.0, help='percentage of uppaired data samples')
     parser.add_argument('--missing_token', type=str, default=None, help='zeros, learnable')
         # normalizer setting 
@@ -109,6 +109,7 @@ def args_parser():
     # Copula parameters
     parser.add_argument('--K', type=int, default=3)
     parser.add_argument('--rho_scale', type=float, default=-3)
+    parser.add_argument('--eta', type=float, default=1)
 
     # Temperature annealing
     parser.add_argument('--temperature', type=float, default=0.0001)

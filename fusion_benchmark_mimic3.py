@@ -93,7 +93,8 @@ if __name__ == "__main__":
 
     for lr in [0.0001, 0.0005, 0.001]:
     # for dr in [0, 0.05, 0.1, 0.2, 0.3, 0.4]:
-        for temperature in [0.001, 0.005, 0.01]:
+    #     for temperature in [0.001, 0.005, 0.01]:
+        for eta in [0.5, 1, 2]:
             for rho_scale in [-2.5, -3, -3.5, -4]:
                 for K in [2, 3]:
                     if "partial" in args.data_pairs:
@@ -108,9 +109,10 @@ if __name__ == "__main__":
 
                     # args.lr = lr
                     # args.dropout = dr
+                    args.eta = eta
                     args.K = K
                     args.rho_scale = rho_scale
-                    args.temperature = temperature
+                    # args.temperature = temperature
 
                     name = f"{dataset_name}_{args.fusion_type}_{pair_type}_{args.labels_set}_rho{rho_scale}_K{K}_temp{args.temperature}"
                     # name = f"{args.fusion_type}_{pair_type}_{args.labels_set}_dr{dr}"
