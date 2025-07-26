@@ -1,4 +1,4 @@
-## Code for [CM$^2$](-): Cross-Modal Alignment via Variational Copula Modelling
+## Code for DPMM: Amplifying Prominent Representations in Multimodal Learning via Variational Dirichlet Process
 
 
 Table of contents
@@ -7,10 +7,10 @@ Table of contents
 <!--ts-->
 - [Table of contents](#table-of-contents)
 - [Background](#background)
-- [Overview of the CM$^2$ network](#overview-of-the-cm2-network)
+- [Overview of the DPMM network](#overview-of-the-dpmm-network)
 - [Environment setup](#environment-setup)
   - [Dataset](#dataset)
-- [Overview of the network with CM$^2$ module](#overview-of-the-network-with-cm2-module)
+- [Overview of the network with DPMM module](#overview-of-the-network-with-cm2-module)
   - [Model training](#model-training)
   - [Model evaluation](#model-evaluation)
 - [Citation](#citation)
@@ -19,13 +19,15 @@ Table of contents
 
 Background
 ============
-Multimodal learning aims to aggregate information from multiple modalities to generate meaningful representations for downstream tasks.The key challenge in multimodal learning is how to appropriately align the representations of respective modalities and fuse them into a joint distribution. Existing methods mainly focus on fusing the representations via concatenation or Kronecker product which over-simplify the interaction structure between modalities, prompting the need to model the complex interactions. On the other hand, the notion of joint distribution of the latent representations, which incorporates higher-order interactions between modalities, has been under-explored. Copula is a powerful statistical structure in modeling the interactions between variables as it bridges the joint distribution and the marginal distributions of multiple variables.
+Developing effective multimodal fusion approaches has been increasingly essential as they demonstrate promising performance in many real-world scenarios, such as healthcare and finance. The key challenge is how to preserve the feature expressiveness in each modality while learning cross-modal interactions between the modalities. Previous approaches mainly focus on the cross-modal alignment,
+while over-emphasizing the alignment of marginal distributions of the modalities would impose excess regularization and hinder the significant representations within each modality. Dirichlet process (DP) is a powerful Bayesian non-parametric model that can amplify the most prominent features by its richer-gets-richer property, which allocates increasing weights to them. Inspired by this, we propose a novel DP-driven multimodal learning framework to automatically optimize the tradeoff between learn
+ing prominent intra-modal representation and cross-modal alignment. Specifically, we assume a mixture of multivariate Gaussian distribution for each modality and propose to calculate the mixture weights of all mixture components with DP. Therefore, DP can dynamically allocate the contributions of features and select the prominent features by its richer-gets-richer property. Extensive experiments on clinical and general multimodal datasets demonstrate the superior performance of our model over other competitors. Ablation analysis further validates the effectiveness of DP in aligning modality distributions and its robustness to changes in key hyperparameters
 
 
-Overview of the CM$^2$ network
+Overview of the DPMM network
 ====================================
 
-We first extract and link the datasets from MIMIC-IV, MIMIC-III and MIMIC-CXR based on the task definition (i.e., in hospital mortality prediction, or readmission prediction). The data splits of the training, validation, and test sets are summarized for each task, and the prevalence of positive and negative labels for in-hospital mortality and readmission is shown in 
+We first extract and link the datasets from MIMIC-IV, MIMIC-III, and MIMIC-CXR based on the task definition (i.e., in hospital mortality prediction, or readmission prediction). The data splits of the training, validation, and test sets are summarized for each task, and the prevalence of positive and negative labels for in-hospital mortality and readmission is shown in 
 ![](figures/datset_summary.png)
 
 
@@ -33,9 +35,9 @@ Environment setup
 ==================
 
     git clone xxx
-    cd CMCM
+    cd DPMM
     conda env create -f environment.yml
-    conda activate CMCM
+    conda activate DPMM
 
 Dataset
 -------------
@@ -45,20 +47,20 @@ We used [MIMIC-III EHR](https://physionet.org/content/mimiciii/1.4/) and [MIMIC-
 We provide the script for MIMIC-III following [MIMIC-III Benchmark](https://github.com/YerevaNN/mimic3-benchmarks), and script for MIMIC-IV following [MedFuse](https://github.com/nyuad-cai/MedFuse).
 Please follow the [MIMIC3-readme](mimic3extract/README.md) and [MIMIC4-readme](mimic4extract/README.md) to extract and prepare the time-series EHR dataset for experiments. Download the [MIMIC CXR](https://physionet.org/content/mimic-cxr-jpg/2.0.0/) dataset and [MIMIC-CXR-REPORT](https://physionet.org/content/mimic-cxr/2.1.0/) dataset.
 
-Please specify the ehr_data_dir and cxr_data_dir directories paths before running the scripts.
+Please specify the ehr_data_dir and cxr_data_dir directory paths before running the scripts.
 
 After extracting the time-series data, clinical note data. Please follow the preprocess steps to link the defferent modalities data.
 ```
 cd ehr utils
 python resize.py # resize the images
-python create_split.py # exclude the subjects from training split of CXR dataset which are present in validation and test splits of EHR dataset
+python create_split.py # exclude the subjects from training split of CXR dataset which are present in the validation and test splits of EHR dataset
 python create_split_cxr_w_note.py # merge cxr and reports with EHR dataset
 python creat_section_files.py # extract sections form radiology report
 ```
 
-before training the modal, the directories paths of dataset should be like:
+before training the modal, the directory paths of dataset should be like:
 ```
-CMCM
+DPMM
 |── data_mimic3
 │   |── train_text_fixed
 │   |── test_text_fixed
@@ -118,11 +120,11 @@ The "paired" are only the icu stays with both ehr as well as cxr samples (along 
 
 Argument "data_pairs" takes any of these options 'paired_ehr_cxr' samples all modalities(ehr+cxr, or ehr+cxr+report) for paired icu stays, 'partial_ehr_cxr' samples both ehr and cxr for partial icu stays, 'paired_ehr_cnote' samples both modalities(ehr+note) for paired icu stays, 'partial_ehr_note' samples both ehr and note for partial icu stays, 
 
-Argument 'fusion_type' defines the fusion baselines and our proposed approach, options include 'daft', 'mmtm', 'medfuse', 'unified', 'defuse', 'copula'.
+Argument 'fusion_type' defines the fusion baselines and our proposed approach, options include 'daft', 'mmtm', 'medfuse', 'unified', 'defuse', 'dp'.
 
 Please refer to arguments.py for further configurations.
 
-Overview of the network with CM$^2$ module
+Overview of the network with DPMM module
 ====================================
 ![](figures/framework.png)
 
@@ -130,21 +132,21 @@ Model training
 -----------------
 
 ```
-# copula learning on partially matched dataset
-sh ./scripts/mortality/mimic3/partial/copula.sh # IHM task on MIMIC-III
-sh ./scripts/readmission/mimic3/partial/copula.sh # READM task on MIMIC-III
-sh ./scripts/mortality/mimic4/partial/copula.sh # IHM task on MIMIC-IV
-sh ./scripts/readmission/mimic4/partial/copula.sh # READM task on MIMIC-IV
+# dp learning on partially matched dataset
+sh ./scripts/mortality/mimic3/partial/dp.sh # IHM task on MIMIC-III
+sh ./scripts/readmission/mimic3/partial/dp.sh # READM task on MIMIC-III
+sh ./scripts/mortality/mimic4/partial/dp.sh # IHM task on MIMIC-IV
+sh ./scripts/readmission/mimic4/partial/dp.sh # READM task on MIMIC-IV
 
-# copula learning on fully matched dataset
-sh ./scripts/mortality/mimic3/paired/copula.sh # IHM task on MIMIC-III
-sh ./scripts/readmission/mimic3/paired/copula.sh # READM task on MIMIC-III
-sh ./scripts/mortality/mimic4/paired/copula.sh # IHM task on MIMIC-IV
-sh ./scripts/readmission/mimic4/paired/copula.sh # READM task on MIMIC-IV
+# dp learning on fully matched dataset
+sh ./scripts/mortality/mimic3/paired/dp.sh # IHM task on MIMIC-III
+sh ./scripts/readmission/mimic3/paired/dp.sh # READM task on MIMIC-III
+sh ./scripts/mortality/mimic4/paired/dp.sh # IHM task on MIMIC-IV
+sh ./scripts/readmission/mimic4/paired/dp.sh # READM task on MIMIC-IV
 
-# copula learning on tri-modal dataset
-sh ./scripts/mortality/mimic4/triple/copula.sh # IHM task on MIMIC-IV
-sh ./scripts/readmission/mimic4/triple/copula.sh # READM task on MIMIC-IV
+# dp learning on tri-modal dataset
+sh ./scripts/mortality/mimic4/triple/dp.sh # IHM task on MIMIC-IV
+sh ./scripts/readmission/mimic4/triple/dp.sh # READM task on MIMIC-IV
 ```
 We provide the training and evaluation scripts inside 'scripts' directory for other baselines as well for the results reported in the paper. 
 
@@ -152,21 +154,21 @@ Model evaluation
 ------------------
 Set the 'load_state' to the best model checkpoint path from above experiments before running the following scripts.
 ```
-# copula learning on partially matched dataset
-sh ./scripts/mortality/eval/mimic3/partial/copula.sh # IHM task on MIMIC-III
-sh ./scripts/readmission/eval/mimic3/partial/copula.sh # READM task on MIMIC-III
-sh ./scripts/mortality/eval/mimic4/partial/copula.sh # IHM task on MIMIC-IV
-sh ./scripts/readmission/eval/mimic4/partial/copula.sh # READM task on MIMIC-IV
+# dp learning on partially matched dataset
+sh ./scripts/mortality/eval/mimic3/partial/dp.sh # IHM task on MIMIC-III
+sh ./scripts/readmission/eval/mimic3/partial/dp.sh # READM task on MIMIC-III
+sh ./scripts/mortality/eval/mimic4/partial/dp.sh # IHM task on MIMIC-IV
+sh ./scripts/readmission/eval/mimic4/partial/dp.sh # READM task on MIMIC-IV
 
-# copula learning on fully matched dataset
-sh ./scripts/mortality/eval/mimic3/paired/copula.sh # IHM task on MIMIC-III
-sh ./scripts/readmission/eval/mimic3/paired/copula.sh # READM task on MIMIC-III
-sh ./scripts/mortality/eval/mimic4/paired/copula.sh # IHM task on MIMIC-IV
-sh ./scripts/readmission/eval/mimic4/paired/copula.sh # READM task on MIMIC-IV
+# dp learning on fully matched dataset
+sh ./scripts/mortality/eval/mimic3/paired/dp.sh # IHM task on MIMIC-III
+sh ./scripts/readmission/eval/mimic3/paired/dp.sh # READM task on MIMIC-III
+sh ./scripts/mortality/eval/mimic4/paired/dp.sh # IHM task on MIMIC-IV
+sh ./scripts/readmission/eval/mimic4/paired/dp.sh # READM task on MIMIC-IV
 
-# copula learning on tri-modal dataset
-sh ./scripts/mortality/eval/mimic4/triple/copula.sh # IHM task on MIMIC-IV
-sh ./scripts/readmission/eval/mimic4/triple/copula.sh # READM task on MIMIC-IV
+# dp learning on tri-modal dataset
+sh ./scripts/mortality/eval/mimic4/triple/dp.sh # IHM task on MIMIC-IV
+sh ./scripts/readmission/eval/mimic4/triple/dp.sh # READM task on MIMIC-IV
 ```
 
 Citation 

@@ -1,4 +1,4 @@
-name: CMCM
+name: DPMM
 channels:
   - pytorch
   - nvidia
@@ -153,4 +153,4 @@ dependencies:
       - tzdata==2024.2
       - wandb==0.18.2
       - wcwidth==0.2.13
-prefix: /home/fwu/anaconda3/envs/CMCM
+prefix: /home/fwu/anaconda3/envs/DPMM

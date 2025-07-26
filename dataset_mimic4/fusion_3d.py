@@ -76,12 +76,47 @@ class MIMIC_CXR_NOTE_EHR(Dataset):
         )
 
     def __getitem__(self, index):
-        if self.args.data_pairs == "paired_ehr_cxr":
+        if self.args.data_pairs == "paired_ehr_cxr_note":
             ehr_data, labels_ehr = self.ehr_ds[self.ehr_files_paired[index]]
             cxr_data, text_token, atten_mask, labels_cxr = self.cxr_ds[
                 self.cxr_files_paired[index]
             ]
             return ehr_data, cxr_data, text_token, atten_mask, labels_ehr, labels_cxr
+
+        elif self.args.data_pairs == "paired_ehr":
+            ehr_data, labels_ehr = self.ehr_ds[self.ehr_files_paired[index]]
+            cxr_data, text_token, atten_mask, labels_cxr = None, None, None, None
+            return ehr_data, cxr_data, text_token, atten_mask, labels_ehr, labels_cxr
+        
+        elif self.args.data_pairs == "paired_cxr":
+            ehr_data = np.zeros((1, 10))
+            _, labels_ehr = self.ehr_ds[self.ehr_files_paired[index]]
+            cxr_data, text_token, atten_mask, labels_cxr = self.cxr_ds[
+                self.cxr_files_paired[index]
+            ]
+            return ehr_data, cxr_data, text_token, atten_mask, labels_ehr, labels_cxr
+        
+        elif self.args.data_pairs == "paired_note":
+            ehr_data = np.zeros((1, 10))
+            _, labels_ehr = self.ehr_ds[self.ehr_files_paired[index]]
+            cxr_data, text_token, atten_mask, labels_cxr = self.cxr_ds[
+                self.cxr_files_paired[index]
+            ]
+            return ehr_data, None, text_token, atten_mask, labels_ehr, labels_cxr
+        
+        elif self.args.data_pairs == "paired_ehr_cxr":
+            ehr_data, labels_ehr = self.ehr_ds[self.ehr_files_paired[index]]
+            cxr_data, text_token, atten_mask, labels_cxr = self.cxr_ds[
+                self.cxr_files_paired[index]
+            ]
+            return ehr_data, cxr_data, None, None, labels_ehr, labels_cxr
+        
+        elif self.args.data_pairs == "paired_ehr_note":
+            ehr_data, labels_ehr = self.ehr_ds[self.ehr_files_paired[index]]
+            cxr_data, text_token, atten_mask, labels_cxr = self.cxr_ds[
+                self.cxr_files_paired[index]
+            ]
+            return ehr_data, None, text_token, atten_mask, labels_ehr, labels_cxr
 
         elif self.args.data_pairs == "partial_ehr_cxr":
             if index < len(self.ehr_files_paired):
@@ -198,7 +233,7 @@ def load_cxr_note_ehr(
         shuffle=True,
         collate_fn=my_collate,
         pin_memory=True,
-        num_workers=0,
+        num_workers=4,
         drop_last=True,
     )
     val_dl = DataLoader(
@@ -207,7 +242,7 @@ def load_cxr_note_ehr(
         shuffle=False,
         collate_fn=my_collate,
         pin_memory=True,
-        num_workers=0,
+        num_workers=4,
         drop_last=False,
     )
     test_dl = DataLoader(
@@ -216,7 +251,7 @@ def load_cxr_note_ehr(
         shuffle=False,
         collate_fn=my_collate,
         pin_memory=True,
-        num_workers=0,
+        num_workers=4,
         drop_last=False,
     )
 
@@ -234,7 +269,7 @@ def printPrevalence(merged_file, args):
 
 def my_collate(batch):
     x = [item[0] for item in batch]
-    pairs = [False if item[1] is None else True for item in batch]
+    pairs = [False if (item[1] is None and item[2] is None )else True for item in batch]
     img = torch.stack(
         [torch.zeros(3, 224, 224) if item[1] is None else item[1] for item in batch]
     )
@@ -281,13 +316,10 @@ def pad_zeros(arr, min_length=None):
 
 
 if __name__ == "__main__":
-    import sys
-
-    sys.path.append("/home/fwu/Documents/myProjects/MedFuse/")
     from arguments import args_parser
     from ehr_utils.preprocessing import Discretizer, Normalizer
-    from datasets_mf.ehr_dataset import get_datasets
-    from datasets_mf.cxr_note_dataset import get_cxr_note_datasets
+    from dataset_mimic4.ehr_dataset import get_datasets
+    from dataset_mimic4.cxr_note_dataset import get_cxr_note_datasets
 
     parser = args_parser()
     args = parser.parse_args()

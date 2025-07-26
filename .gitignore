@@ -120,3 +120,7 @@ data/
 
 # datasets
 output_mimic4/
+
+test.ipynb
+fusion_benchmark_mimic3.py
+fusion_benchmark_mimic4.py

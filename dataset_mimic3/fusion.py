@@ -193,9 +193,6 @@ def pad_zeros(arr, min_length=None):
 
 
 if __name__ == "__main__":
-    import sys
-
-    sys.path.append("/home/fwu/Documents/myProjects/MedFuse/")
     from arguments import args_parser
     from ehr_utils.preprocessing import Discretizer, Normalizer
     from dataset_mimic3.ehr_dataset import get_datasets
@@ -203,12 +200,12 @@ if __name__ == "__main__":
 
     parser = args_parser()
     args = parser.parse_args()
-    args.ehr_data_dir = "/disk1/fwu/myProjects/MedFuse/data_mimic3"
+    args.ehr_data_dir = "data_mimic3"
     args.data_pairs = "partial_ehr_note"
     args.labels_set = "mortality"
     args.task = "readmission"
     args.normalizer_state = (
-        "/disk1/fwu/myProjects/MedFuse/data_mimic3/ihm_ts.normalizer"
+        "data_mimic3/ihm_ts.normalizer"
     )
 
     def read_timeseries(args):

@@ -61,7 +61,10 @@ class DP_Fusion(nn.Module):
             ehr_feats = F.normalize(ehr_feats, p=2, dim=1)
             projected = F.normalize(projected, p=2, dim=1)
 
+        seq_lengths = np.array([1] * len(seq_lengths))
+        seq_lengths[pairs] = 2
         if self.args.dp_resample:
+            seq_lengths = np.array([2] * len(seq_lengths))
             n_samples = len(projected[list(~np.array(pairs))])
             if n_samples > 0:
                 note_samples = self.dp_loss.rsample(
@@ -87,8 +90,6 @@ class DP_Fusion(nn.Module):
             else:
                 feats = ehr_feats[:, None, :]
                 feats = torch.cat([feats, projected[:, None, :]], dim=1)
-            seq_lengths = np.array([1] * len(seq_lengths))
-            seq_lengths[pairs] = 2
 
             feats = torch.nn.utils.rnn.pack_padded_sequence(
                 feats, seq_lengths, batch_first=True, enforce_sorted=False
